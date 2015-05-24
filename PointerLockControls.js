@@ -12,6 +12,9 @@ THREE.PointerLockControls = function ( camera ) {
 	yawObject.position.y = 10;
 	yawObject.add( pitchObject );
 
+	var bullets;
+	var scene;
+
 	var moveForward = false;
 	var moveBackward = false;
 	var moveLeft = false;
@@ -27,6 +30,11 @@ THREE.PointerLockControls = function ( camera ) {
 	var velocity = new THREE.Vector3();
 
 	var PI_2 = Math.PI / 2;
+
+	// this.setScene = function ( scene ) {
+	// 	scene = scene;
+	// 	console.log( 'scene set' )
+	// }
 
 	var onMouseMove = function ( event ) {
 
@@ -66,7 +74,8 @@ THREE.PointerLockControls = function ( camera ) {
 				break;
 
 			case 32: // space
-				if ( canJump === true ) velocity.y += 8;
+				// if ( canJump === true ) velocity.y += 8;
+				if ( canJump === true ) velocity.y = 8;
 				canJump = false;
 				break;
 
@@ -102,11 +111,30 @@ THREE.PointerLockControls = function ( camera ) {
 
 	};
 
+	// var onMouseDown = function ( event ){
+	// 	event.preventDefault();
+	// 	console.log( 'mouse down' );
+	// 	geometry = new THREE.BoxGeometry( 5, 5, 5 );
+	// 	var texture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false );
+	// 	material = new THREE.MeshLambertMaterial( { map: texture, specular: 0xffffff, shading: THREE.FlatShading } );
+	// 	var mesh = new THREE.Mesh( geometry, material );
+	// 	mesh.position.x = 0
+	// 	mesh.position.y = 0
+	// 	mesh.position.z = 0
+	// 	scene.add(mesh)
+	// }
+
 	document.addEventListener( 'mousemove', onMouseMove, false );
+	// document.addEventListener( 'mousedown', onMouseDown, false);
 	document.addEventListener( 'keydown', onKeyDown, false );
 	document.addEventListener( 'keyup', onKeyUp, false );
 
 	this.enabled = false;
+
+	this.getSightVector = function () {
+		dir = new THREE.Vector3(0, 0, 0)
+		return 
+	}
 
 	this.getObject = function () {
 

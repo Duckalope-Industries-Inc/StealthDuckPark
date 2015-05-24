@@ -86,6 +86,7 @@
 			var controls,time = Date.now();
 
 			var objects = [];
+			var bullets = [];
 
 			var ray;
 
@@ -237,22 +238,9 @@
 
 				geometry = new THREE.BoxGeometry( 20, 20, 20 );
 
-				// for ( var i = 0, l = geometry.faces.length; i < l; i ++ ) {
-
-				// 	var face = geometry.faces[ i ];
-				// 	face.vertexColors[ 0 ] = new THREE.Color().setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
-				// 	face.vertexColors[ 1 ] = new THREE.Color().setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
-				// 	face.vertexColors[ 2 ] = new THREE.Color().setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
-
-				// }
-
 				var texture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false );
 				material = new THREE.MeshLambertMaterial( { map: texture, specular: 0xffffff, shading: THREE.FlatShading } );
 				for ( var i = 0; i < 100; i ++ ) {
-
-
-					// texture.anisotropy = renderer.getMaxAnisotropy();
-					// material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
 
 					var mesh = new THREE.Mesh( geometry, material );
 					mesh.position.x = Math.floor( Math.random() * 20 - 10 ) * 20;
@@ -266,7 +254,6 @@
 
 				}
 
-				//
 
 				renderer = new THREE.WebGLRenderer();
 				// renderer.setClearColor( 0xffffff );
@@ -275,8 +262,39 @@
 				document.body.appendChild( renderer.domElement );
 
 				//
-
 				window.addEventListener( 'resize', onWindowResize, false );
+
+				// bullets
+
+				var onMouseDown = function ( event ){
+					event.preventDefault();
+					// console.log( 'mouse down2' );
+					
+					geometry = new THREE.SphereGeometry(0.2);
+					var texture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false );
+					// var material = new THREE.MeshBasicMaterial({color: 0xac6c25});
+					material = new THREE.MeshLambertMaterial( { map: texture, specular: 0xffffff, shading: THREE.FlatShading } );
+					var mesh = new THREE.Mesh( geometry, material );
+					
+					shooterPosition = controls.getObject().position
+					mesh.position.x = shooterPosition.x+1
+					mesh.position.y = shooterPosition.y-1.7
+					mesh.position.z = shooterPosition.z
+					scene.add(mesh)
+					
+					var dir = new THREE.Vector3()
+					controls.getDirection( dir )
+
+					// var pointColor = "#ccffcc";
+			        // var pointLight = new THREE.PointLight(pointColor);
+			        // pointLight.distance = 200;
+			        // pointLight.intensity = 200
+			        // scene.add(pointLight);
+
+					// bullets.push( [mesh, 300, dir, pointLight] )
+					bullets.push( [mesh, 300, dir] )
+				}
+				document.addEventListener( 'mousedown', onMouseDown, false);
 
 			}
 
@@ -292,6 +310,8 @@
 			function animate() {
 
 				requestAnimationFrame( animate );
+
+				// not getting into boxes
 
 				controls.isOnObject( false );
 				controls.isNorthToObject( false );
@@ -342,6 +362,26 @@
 					}
 				}
 
+				// flying bullets
+
+				// var len = bullets.length
+				for (var i = 0; i < bullets.length; i++) {
+					// console.log(bullets[i].position.x)
+					var velo = 2.5
+					bullets[i][2].y -= 0.005
+					bullets[i][0].position.x += bullets[i][2].x * velo
+					bullets[i][0].position.y += bullets[i][2].y * velo
+					bullets[i][0].position.z += bullets[i][2].z * velo
+					bullets[i][1] -= 1
+
+					// bullets[i][3].position = bullets[i][0].position
+					// console.log(bullets[i][1])
+					if (bullets[i][1] < 0) {
+						scene.remove(bullets[i][0])
+						// scene.remove(bullets[i][3])
+						bullets.splice(i, 1)
+					}
+				}
 
 				controls.update( Date.now() - time );
 
