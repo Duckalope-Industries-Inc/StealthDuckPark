@@ -87,6 +87,15 @@
 
 			var objects = [];
 			var bullets = [];
+			var zombies = [];
+
+			var zombieTexture = THREE.ImageUtils.loadTexture( 'zombie.jpeg', new THREE.UVMapping(), false );
+			var zombieMaterial = new THREE.MeshPhongMaterial( { map: zombieTexture, shading: THREE.FlatShading } );
+
+			var bulletTexture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false );
+			// var material = new THREE.MeshBasicMaterial({color: 0xac6c25});
+			var bulletMaterial = new THREE.MeshLambertMaterial( { map: bulletTexture, specular: 0xffffff, shading: THREE.FlatShading } );
+
 
 			var ray;
 
@@ -189,9 +198,10 @@
 
 				scene = new THREE.Scene();
 				// scene.fog = new THREE.Fog( 0xffffff, 0, 750 );
-				scene.fog = new THREE.Fog( 0x000000, 0, 750 );
+				scene.fog = new THREE.Fog( 0x000000, 0, 750 ); // black fog
 
 				var light = new THREE.DirectionalLight( 0xffffff, 0.1 );
+				// var light = new THREE.DirectionalLight( 0xffffff, 1.1 );
 				light.position.set( 1, 1, 1 );
 				scene.add( light );
 
@@ -234,7 +244,7 @@
 				mesh = new THREE.Mesh( geometry, material );
 				scene.add( mesh );
 
-				// objects
+				// boxes
 
 				geometry = new THREE.BoxGeometry( 20, 20, 20 );
 
@@ -254,6 +264,9 @@
 
 				}
 
+				
+
+				
 
 				renderer = new THREE.WebGLRenderer();
 				// renderer.setClearColor( 0xffffff );
@@ -271,10 +284,8 @@
 					// console.log( 'mouse down2' );
 					
 					geometry = new THREE.SphereGeometry(0.2);
-					var texture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false );
-					// var material = new THREE.MeshBasicMaterial({color: 0xac6c25});
-					material = new THREE.MeshLambertMaterial( { map: texture, specular: 0xffffff, shading: THREE.FlatShading } );
-					var mesh = new THREE.Mesh( geometry, material );
+					
+					var mesh = new THREE.Mesh( geometry, bulletMaterial );
 					
 					shooterPosition = controls.getObject().position
 					mesh.position.x = shooterPosition.x+1
@@ -367,13 +378,27 @@
 				// var len = bullets.length
 				for (var i = 0; i < bullets.length; i++) {
 					// console.log(bullets[i].position.x)
-					var velo = 2.5
+					var velo = 3.5
 					bullets[i][2].y -= 0.005
 					bullets[i][0].position.x += bullets[i][2].x * velo
 					bullets[i][0].position.y += bullets[i][2].y * velo
 					bullets[i][0].position.z += bullets[i][2].z * velo
 					bullets[i][1] -= 1
 
+					northRay.ray.origin.copy( bullets[i][0].position )
+					var intersections = northRay.intersectObjects( zombies )
+					if (intersections.length > 0) {
+						var distance = intersections[0].distance
+						if (distance > -6 && distance < 6) {
+							console.log(intersections[0])
+							scene.remove( intersections[0].object )
+							var index = zombies.indexOf( intersections[0].object )
+							console.log(index)
+							zombies.splice(index, 1)
+							// console.log('u wot mate?')
+						}
+					}
+					// console.log('free cheetos?')
 					// bullets[i][3].position = bullets[i][0].position
 					// console.log(bullets[i][1])
 					if (bullets[i][1] < 0) {
@@ -381,7 +406,51 @@
 						// scene.remove(bullets[i][3])
 						bullets.splice(i, 1)
 					}
+
 				}
+
+				// zombies
+
+				// geometry = new THREE.PlaneGeometry( 10, 10 )
+					if ( zombies.length < 7 ) {
+						geometry = new THREE.BoxGeometry( 10, 10, 10 )
+						
+						var mesh = new THREE.Mesh( geometry, zombieMaterial );
+						mesh.material.side = THREE.DoubleSide
+						mesh.position.x = Math.floor( Math.random() * 20 - 10 ) * 20
+						mesh.position.y = 10
+						mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20
+						mesh.lookAt(controls.getObject().position)
+						zombies.push( mesh )
+						scene.add( mesh );
+					}
+
+				for (var i = 0; i < zombies.length; i++) {
+					zombies[i].lookAt(controls.getObject().position)
+					var dirx = (controls.getObject().position.x - zombies[i].position.x) / 300
+					var diry = (controls.getObject().position.y - zombies[i].position.y) / 300
+					var dirz = (controls.getObject().position.z - zombies[i].position.z) / 300
+
+					zombies[i].position.x += dirx
+					zombies[i].position.z += dirz
+					// console.log(dir)
+
+				// 	//check for being shot
+				// 	northRay.ray.origin.copy( zombies[i].position ) // todo do not use eastray; use new ray made from getDirection
+				// 	var intersections = northRay.intersectObjects( bullets )
+				// 	console.log('here')
+				// 	if ( intersections.length > 0 ) {
+				// 		console.log('there')
+				// 		var distance = intersections[ 0 ].distance;
+				// 		if ( distance > -6 && distance < 6 ) {
+				// 			console.log(intersections[0])
+				// 		}
+				// 	}
+				}
+
+
+
+				// console.log(controls.getObject().position)
 
 				controls.update( Date.now() - time );
 
