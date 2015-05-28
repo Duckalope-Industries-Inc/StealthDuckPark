@@ -81,9 +81,30 @@
 
 		<script>
 
+			// coffee start
+
+			time = Date.now()
+			objects = []
+			bullets = []
+			zombies = []
+
+			zombieTexture = THREE.ImageUtils.loadTexture( 'zombie.jpeg', new THREE.UVMapping(), false )
+			zombieMaterial = new THREE.MeshPhongMaterial( { map: zombieTexture, shading: THREE.FlatShading } )
+			bulletTexture = THREE.ImageUtils.loadTexture( 'crate.gif', new THREE.UVMapping(), false )
+			bulletMaterial = new THREE.MeshLambertMaterial( { map: bulletTexture, specular: 0xffffff, shading: THREE.FlatShading } )
+
+			blocker = document.getElementById( 'blocker' )
+			instructions = document.getElementById( 'instructions' )
+
+			havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document
+
+			// coffee end
+
+
 			var camera, scene, renderer;
 			var geometry, material, mesh;
 			var controls,time = Date.now();
+
 
 			var objects = [];
 			var bullets = [];
@@ -105,6 +126,8 @@
 			// http://www.html5rocks.com/en/tutorials/pointerlock/intro/
 
 			var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
+			
+			// coffee done to this place
 
 			if ( havePointerLock ) {
 
