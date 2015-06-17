@@ -152,9 +152,9 @@ randomInt = (max) -> Math.floor(Math.random() * max)
 while crates.length < 100
   x = randomInt 20
   z = randomInt 20
-  continue if ((x is 0) or (z is 0)) and ((x is -1) or (z is -1))
+  continue if (x is 10) and (z is 10)
   if not arena[x][z]
-    crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 40
+    crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
     crateMesh.position.x = (x - 10) * 20
     crateMesh.position.y = 10
     crateMesh.position.z = (z - 10) * 20
@@ -181,21 +181,24 @@ window.addEventListener 'resize', ->
 document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
 
-  bulletGeometry = new THREE.SphereGeometry 0.2
+  bulletGeometry = new THREE.SphereGeometry 0.3
   bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, 1
-
-  shooterPosition = controls.getObject().position
-  bulletMesh.position.x = shooterPosition.x + 1
-  bulletMesh.position.y = shooterPosition.y - 1.7
-  bulletMesh.position.z = shooterPosition.z
-  scene.add bulletMesh
 
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
+
+  shooterPosition = controls.getObject().position
+  bulletMesh.position.x = shooterPosition.x + bulletDirection.x
+  bulletMesh.position.y = shooterPosition.y + bulletDirection.y
+  bulletMesh.position.z = shooterPosition.z + bulletDirection.z
+  scene.add bulletMesh
+
+  bulletDirection.multiplyScalar 100
+  bulletMesh.applyCentralImpulse bulletDirection
+
   bullets.push
     mesh: bulletMesh
-    ttl: 300
-    direction: bulletDirection
+    ttl: 200
 , false
 
 
@@ -238,11 +241,7 @@ checkCollisions = ->
 updateBullets = ->
   newBullets = bullets
   for bullet in bullets
-    for coord in ['x', 'y', 'z']
-      bullet.mesh.position[coord] += bullet.direction[coord] * 3.5
-    bullet.direction.y -= 0.005
     bullet.ttl -= 1
-
     if (bullet.ttl <= 0) or (bullet.mesh.position.y < 0)
       scene.remove bullet.mesh
       newBullets = _.without newBullets, bullet
@@ -276,7 +275,6 @@ animate = ->
 
 #  if controls.enabled  # disabled = game is paused
 #    checkCollisions()
-#    updateBullets()
 #    updateZombies()
 
   delta = Date.now() - time
@@ -284,6 +282,7 @@ animate = ->
   time += delta
 
   if controls.enabled
+    updateBullets()
     scene.simulate delta, 1
 
   renderer.render scene, camera
