@@ -193,7 +193,7 @@ document.addEventListener 'mousedown', (event) ->
   bulletMesh.position.z = shooterPosition.z + bulletDirection.z
   scene.add bulletMesh
 
-  bulletDirection.multiplyScalar 100
+  bulletDirection.multiplyScalar 120
   bulletMesh.applyCentralImpulse bulletDirection
 
   bullets.push
@@ -202,41 +202,6 @@ document.addEventListener 'mousedown', (event) ->
 , false
 
 
-
-checkCollisions = ->
-  controls.setOnObject no
-  controls.setNorthToObject no
-  controls.setSouthToObject no
-  controls.setEastToObject no
-  controls.setWestToObject no
-
-  raycaster.ray.origin.copy controls.getObject().position
-  raycaster.ray.origin.y -= 10
-  intersections = raycaster.intersectObjects crates
-  if intersections.length
-    distance = intersections[0].distance
-    if (distance > 0) and (distance < 10)
-      controls.setOnObject yes
-
-  detectDirectedCollision = (caster, callback) ->
-    caster.ray.origin.copy controls.getObject().position
-    intersections = caster.intersectObjects crates
-    if intersections.length
-      distance = intersections[0].distance
-      callback() if (distance > 0) and (distance < 6)
-  detectDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
-  detectDirectedCollision raycasterSouth, -> controls.setSouthToObject yes
-  detectDirectedCollision raycasterEast, -> controls.setEastToObject yes
-  detectDirectedCollision raycasterWest, -> controls.setWestToObject yes
-
-  for bullet in bullets
-    raycasterNorth.ray.origin.copy bullet.mesh.position
-    intersections = raycasterNorth.intersectObjects zombies
-    if intersections.length
-      distance = intersections[0].distance
-      if (distance > -7) and (distance < 7)
-        scene.remove intersections[0].object
-        zombies = _.without zombies, intersections[0].object
 
 updateBullets = ->
   newBullets = bullets
