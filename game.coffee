@@ -1,3 +1,5 @@
+Physijs.scripts.worker = 'lib/physijs_worker.js'
+
 # textures
 zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.jpeg', new THREE.UVMapping()
 bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
@@ -5,20 +7,24 @@ grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 
 # materials
-zombieMaterial = new THREE.MeshPhongMaterial
+zombieMaterial = Physijs.createMaterial new THREE.MeshPhongMaterial
   map: zombieTexture
   shading: THREE.FlatShading
-bulletMaterial = new THREE.MeshLambertMaterial
+, 1, 0
+bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: bulletTexture
   specular: 0xffffff
   shading: THREE.FlatShading
-grassMaterial = new THREE.MeshLambertMaterial
+, 1, 0
+grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: grassTexture
   specular: 0xffffff
-crateMaterial = new THREE.MeshLambertMaterial
+, 0.7, 0
+crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: crateTexture
   specular: 0xffffff
   shading: THREE.FlatShading
+, 1, 0
 
 # DOM
 blocker = document.getElementById 'blocker'
@@ -43,6 +49,7 @@ if hasPointerLock
   pointerLockChange = (event) ->
     pointerLockElement = document.pointerLockElement or document.mozPointerLockElement or document.webkitPointerLockElement
     if element is pointerLockElement
+      time = Date.now()
       controls.enabled = yes
       blocker.style.display = 'none';
     else
@@ -91,8 +98,9 @@ else
 # initialize graphics and controls
 camera = new THREE.PerspectiveCamera 75, window.innerWidth / window.innerHeight, 1, 1000
 
-scene = new THREE.Scene()
+scene = new Physijs.Scene()
 scene.fog = new THREE.Fog 0x000000, 0, 750
+scene.setGravity new THREE.Vector3 0, -50, 0
 
 light1 = new THREE.DirectionalLight 0xffffff, 0.1
 light1.position.set 1, 1, 1
@@ -129,19 +137,30 @@ grassGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
 grassTexture.wrapS = THREE.RepeatWrapping
 grassTexture.wrapT = THREE.RepeatWrapping
 grassTexture.repeat.set 40, 40
-grassMesh = new THREE.Mesh grassGeometry, grassMaterial
+grassMesh = new Physijs.PlaneMesh grassGeometry, grassMaterial, 0
 scene.add grassMesh
 
 crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
-for i in [0...100]
-  crateMesh = new THREE.Mesh crateGeometry, crateMaterial
-  crateMesh.position =
-    x: Math.floor(Math.random() * 20 - 10) * 20
-    y: Math.floor(Math.random()) * 20 + 10
-    z: Math.floor(Math.random() * 20 - 10) * 20
-  scene.add crateMesh
-  crates.push crateMesh
+arenaSize = 20
+arena = []
+for x in [0..arenaSize]
+  arena.push []
+  for z in [0..arenaSize]
+    arena[x].push false
+randomInt = (max) -> Math.floor(Math.random() * max)
+while crates.length < 100
+  x = randomInt 20
+  z = randomInt 20
+  continue if ((x is 0) or (z is 0)) and ((x is -1) or (z is -1))
+  if not arena[x][z]
+    crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 40
+    crateMesh.position.x = (x - 10) * 20
+    crateMesh.position.y = 10
+    crateMesh.position.z = (z - 10) * 20
+    scene.add crateMesh
+    crates.push crateMesh
+    arena[x][z] = true
 
 
 
@@ -163,13 +182,12 @@ document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
 
   bulletGeometry = new THREE.SphereGeometry 0.2
-  bulletMesh = new THREE.Mesh bulletGeometry, bulletMaterial
+  bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, 1
 
   shooterPosition = controls.getObject().position
-  bulletMesh.position =
-    x: shooterPosition.x + 1
-    y: shooterPosition.y - 1.7
-    z: shooterPosition.z
+  bulletMesh.position.x = shooterPosition.x + 1
+  bulletMesh.position.y = shooterPosition.y - 1.7
+  bulletMesh.position.z = shooterPosition.z
   scene.add bulletMesh
 
   bulletDirection = new THREE.Vector3()
@@ -233,12 +251,11 @@ updateBullets = ->
 updateZombies = ->
   if zombies.length < 7
     zombieGeometry = new THREE.BoxGeometry 10, 10, 10
-    zombieMesh = new THREE.Mesh zombieGeometry, zombieMaterial
+    zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterial, 10
     zombieMesh.material.size = THREE.DoubleSide
-    zombieMesh.position =
-      x: Math.floor(Math.random() * 20 - 10) * 20
-      y: 10
-      z: Math.floor(Math.random() * 20 - 10) * 20
+    zombieMesh.position.x = Math.floor(Math.random() * 20 - 10) * 20
+    zombieMesh.position.y = 10
+    zombieMesh.position.z = Math.floor(Math.random() * 20 - 10) * 20
     zombieMesh.lookAt controls.getObject().position
     zombies.push zombieMesh
     scene.add zombieMesh
@@ -257,14 +274,17 @@ updateZombies = ->
 animate = ->
   requestAnimationFrame animate
 
-  if controls.enabled  # disabled = game is paused
-    checkCollisions()
-    updateBullets()
-    updateZombies()
+#  if controls.enabled  # disabled = game is paused
+#    checkCollisions()
+#    updateBullets()
+#    updateZombies()
 
-  newTime = Date.now()
-  controls.update newTime - time
-  time = newTime
+  delta = Date.now() - time
+  controls.update delta
+  time += delta
+
+  if controls.enabled
+    scene.simulate delta, 1
 
   renderer.render scene, camera
 
