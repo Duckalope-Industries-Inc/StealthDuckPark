@@ -182,9 +182,7 @@ document.addEventListener 'mousedown', (event) ->
 
 
 
-animate = ->
-  requestAnimationFrame animate
-
+checkCollisions = ->
   controls.isOnObject no
   controls.isNorthToObject no
   controls.isSouthToObject no
@@ -210,6 +208,16 @@ animate = ->
   detectDirectedCollision raycasterEast, -> controls.isEastToObject yes
   detectDirectedCollision raycasterWest, -> controls.isWestToObject yes
 
+  for bullet in bullets
+    raycasterNorth.ray.origin.copy bullet.mesh.position
+    intersections = raycasterNorth.intersectObjects zombies
+    if intersections.length
+      distance = intersections[0].distance
+      if (distance > -7) and (distance < 7)
+        scene.remove intersections[0].object
+        zombies = _.without zombies, intersections[0].object
+
+updateBullets = ->
   newBullets = bullets
   for bullet in bullets
     for coord in ['x', 'y', 'z']
@@ -222,6 +230,38 @@ animate = ->
       newBullets = _.without newBullets, bullet
   bullets = newBullets
 
+updateZombies = ->
+  if zombies.length < 7
+    zombieGeometry = new THREE.BoxGeometry 10, 10, 10
+    zombieMesh = new THREE.Mesh zombieGeometry, zombieMaterial
+    zombieMesh.material.size = THREE.DoubleSide
+    zombieMesh.position =
+      x: Math.floor(Math.random() * 20 - 10) * 20
+      y: 10
+      z: Math.floor(Math.random() * 20 - 10) * 20
+    zombieMesh.lookAt controls.getObject().position
+    zombies.push zombieMesh
+    scene.add zombieMesh
+
+  for zombie in zombies
+    zombie.lookAt controls.getObject().position
+    dir =
+      x: (controls.getObject().position.x - zombie.position.x) / 300
+      y: (controls.getObject().position.y - zombie.position.y) / 300
+      z: (controls.getObject().position.z - zombie.position.z) / 300
+    zombie.position.x += dir.x
+    zombie.position.z += dir.z
+
+
+
+animate = ->
+  requestAnimationFrame animate
+
+  if controls.enabled  # disabled = game is paused
+    checkCollisions()
+    updateBullets()
+    updateZombies()
+
   newTime = Date.now()
   controls.update newTime - time
   time = newTime
@@ -231,88 +271,3 @@ animate = ->
 
 
 animate()
-
-
-`
-/*
-var camera, scene, renderer;
-var geometry, material, mesh;
-
-var ray;
-
-animate();
-
-function animate() {
-
-
-    // var len = bullets.length
-    for (var i = 0; i < bullets.length; i++) {
-
-        northRay.ray.origin.copy( bullets[i][0].position )
-        var intersections = northRay.intersectObjects( zombies )
-        if (intersections.length > 0) {
-            var distance = intersections[0].distance
-            if (distance > -6 && distance < 6) {
-                console.log(intersections[0])
-                scene.remove( intersections[0].object )
-                var index = zombies.indexOf( intersections[0].object )
-                console.log(index)
-                zombies.splice(index, 1)
-                // console.log('u wot mate?')
-            }
-        }
-
-    }
-
-    // zombies
-
-    // geometry = new THREE.PlaneGeometry( 10, 10 )
-    if ( zombies.length < 7 ) {
-        geometry = new THREE.BoxGeometry( 10, 10, 10 )
-
-        var mesh = new THREE.Mesh( geometry, zombieMaterial );
-        mesh.material.side = THREE.DoubleSide
-        mesh.position.x = Math.floor( Math.random() * 20 - 10 ) * 20
-        mesh.position.y = 10
-        mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20
-        mesh.lookAt(controls.getObject().position)
-        zombies.push( mesh )
-        scene.add( mesh );
-    }
-
-    for (var i = 0; i < zombies.length; i++) {
-        zombies[i].lookAt(controls.getObject().position)
-        var dirx = (controls.getObject().position.x - zombies[i].position.x) / 300
-        var diry = (controls.getObject().position.y - zombies[i].position.y) / 300
-        var dirz = (controls.getObject().position.z - zombies[i].position.z) / 300
-
-        zombies[i].position.x += dirx
-        zombies[i].position.z += dirz
-        // console.log(dir)
-
-        // 	//check for being shot
-        // 	northRay.ray.origin.copy( zombies[i].position ) // todo do not use eastray; use new ray made from getDirection
-        // 	var intersections = northRay.intersectObjects( bullets )
-        // 	console.log('here')
-        // 	if ( intersections.length > 0 ) {
-        // 		console.log('there')
-        // 		var distance = intersections[ 0 ].distance;
-        // 		if ( distance > -6 && distance < 6 ) {
-        // 			console.log(intersections[0])
-        // 		}
-        // 	}
-    }
-
-
-
-    // console.log(controls.getObject().position)
-
-    controls.update( Date.now() - time );
-
-    renderer.render( scene, camera );
-
-    time = Date.now();
-
-}
-*/
-`
