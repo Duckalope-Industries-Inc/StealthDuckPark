@@ -1,5 +1,5 @@
 THREE.PointerLockControls = class
-  pitchObject = new THREE.Object3D()
+  camera = null
   yawObject = new THREE.Object3D()
 
   moveForward = no
@@ -13,12 +13,11 @@ THREE.PointerLockControls = class
   direction = new THREE.Vector3 0, 0, -1
   rotation = new THREE.Euler 0, 0, 0, 'YXZ'
 
-  constructor: (camera) ->
+  constructor: (cam) ->
+    camera = cam
     camera.rotation.set 0, 0, 0
-    pitchObject.add camera
-
     yawObject.position.y = 10
-    yawObject.add pitchObject
+    yawObject.add camera
 
     document.addEventListener 'mousemove', (event) =>
       return null if not @enabled
@@ -26,8 +25,8 @@ THREE.PointerLockControls = class
       movementY = event.movementY or event.mozMovementY or event.webkitMovementY or 0
 
       yawObject.rotation.y -= movementX * 0.002
-      pitchObject.rotation.x -= movementY * 0.002
-      pitchObject.rotation.x = Math.max -PI_2, Math.min(PI_2, pitchObject.rotation.x)
+      camera.rotation.x -= movementY * 0.002
+      camera.rotation.x = Math.max -PI_2, Math.min(PI_2, camera.rotation.x)
     , false
 
     document.addEventListener 'keydown', (event) ->
@@ -41,9 +40,7 @@ THREE.PointerLockControls = class
         when 39, 68  # right, d
           moveRight = yes
         when 32  # space
-          if canJump
-            velocity.y = 8
-            canJump = no
+          velocity.y = 5
     , false
 
     document.addEventListener 'keyup', (event) ->
@@ -63,7 +60,7 @@ THREE.PointerLockControls = class
   getObject: -> yawObject
 
   getDirection: (vec) ->
-    rotation.set pitchObject.rotation.x, yawObject.rotation.y, 0
+    rotation.set camera.rotation.x, yawObject.rotation.y, 0
     vec.copy(direction).applyEuler rotation
     vec
 
@@ -73,7 +70,7 @@ THREE.PointerLockControls = class
     delta *= 0.1
 
     velocity.x += -velocity.x * 0.08 * delta
-    velocity.y -= 0.25 * delta
+    velocity.y -= 0.15 * delta
     velocity.z += -velocity.z * 0.08 * delta
 
     if moveForward
@@ -86,4 +83,9 @@ THREE.PointerLockControls = class
       velocity.x += 0.12 * delta
 
     yawObject.translateX velocity.x
+    yawObject.translateY velocity.y
     yawObject.translateZ velocity.z
+
+    if yawObject.position.y < 10
+      velocity.y = 0
+      yawObject.position.y = 10
