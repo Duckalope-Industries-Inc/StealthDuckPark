@@ -183,11 +183,11 @@ document.addEventListener 'mousedown', (event) ->
 
 
 checkCollisions = ->
-  controls.isOnObject no
-  controls.isNorthToObject no
-  controls.isSouthToObject no
-  controls.isEastToObject no
-  controls.isWestToObject no
+  controls.setOnObject no
+  controls.setNorthToObject no
+  controls.setSouthToObject no
+  controls.setEastToObject no
+  controls.setWestToObject no
 
   raycaster.ray.origin.copy controls.getObject().position
   raycaster.ray.origin.y -= 10
@@ -195,7 +195,7 @@ checkCollisions = ->
   if intersections.length
     distance = intersections[0].distance
     if (distance > 0) and (distance < 10)
-      controls.isOnObject yes
+      controls.setOnObject yes
 
   detectDirectedCollision = (caster, callback) ->
     caster.ray.origin.copy controls.getObject().position
@@ -203,10 +203,10 @@ checkCollisions = ->
     if intersections.length
       distance = intersections[0].distance
       callback() if (distance > 0) and (distance < 6)
-  detectDirectedCollision raycasterNorth, -> controls.isNorthToObject yes
-  detectDirectedCollision raycasterSouth, -> controls.isSouthToObject yes
-  detectDirectedCollision raycasterEast, -> controls.isEastToObject yes
-  detectDirectedCollision raycasterWest, -> controls.isWestToObject yes
+  detectDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
+  detectDirectedCollision raycasterSouth, -> controls.setSouthToObject yes
+  detectDirectedCollision raycasterEast, -> controls.setEastToObject yes
+  detectDirectedCollision raycasterWest, -> controls.setWestToObject yes
 
   for bullet in bullets
     raycasterNorth.ray.origin.copy bullet.mesh.position
