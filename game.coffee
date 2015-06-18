@@ -1,5 +1,21 @@
 Physijs.scripts.worker = 'lib/physijs_worker.js'
 
+randomInt = (max) -> Math.floor(Math.random() * max)
+randomFloat = (min, max) -> (Math.random() * (min + max)) - min
+
+# augment three.js objects
+THREE.Object3D.prototype.rotateAroundWorldAxis = (axis, radians) ->
+  rotWorldMatrix = new THREE.Matrix4()
+  rotWorldMatrix.makeRotationAxis axis.normalize(), radians
+  rotWorldMatrix.multiply this.matrix
+  this.matrix = rotWorldMatrix
+  this.rotation.setFromRotationMatrix this.matrix
+
+THREE.axis =
+  x: new THREE.Vector3 1, 0, 0
+  y: new THREE.Vector3 0, 1, 0
+  z: new THREE.Vector3 0, 0, 1
+
 # textures
 zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.jpeg', new THREE.UVMapping()
 bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
@@ -32,7 +48,8 @@ instructions = document.getElementById 'instructions'
 
 # logic
 controls = null
-time = Date.now()
+times =
+  frame: Date.now()
 
 crates = []
 bullets = []
@@ -49,7 +66,7 @@ if hasPointerLock
   pointerLockChange = (event) ->
     pointerLockElement = document.pointerLockElement or document.mozPointerLockElement or document.webkitPointerLockElement
     if element is pointerLockElement
-      time = Date.now()
+      times.frame = Date.now()
       controls.enabled = yes
       blocker.style.display = 'none'
     else
@@ -132,25 +149,7 @@ scene.add grassMesh
 
 crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
-arenaSize = 20
-arena = []
-for x in [0..arenaSize]
-  arena.push []
-  for z in [0..arenaSize]
-    arena[x].push false
-randomInt = (max) -> Math.floor(Math.random() * max)
-while crates.length < 100
-  x = randomInt 20
-  z = randomInt 20
-  continue if (x is 10) and (z is 10)
-  if not arena[x][z]
-    crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
-    crateMesh.position.x = (x - 10) * 20
-    crateMesh.position.y = 10
-    crateMesh.position.z = (z - 10) * 20
-    scene.add crateMesh
-    crates.push crateMesh
-    arena[x][z] = true
+# crates are created while rendering
 
 
 
@@ -200,9 +199,8 @@ document.addEventListener 'mousedown', (event) ->
   bulletDirection.multiplyScalar(120 * massMultiplier)
   bulletMesh.applyCentralImpulse bulletDirection
 
-  bullets.push
-    mesh: bulletMesh
-    ttl: 200
+  bulletMesh.ttl = 200
+  bullets.push bulletMesh
 , false
 
 
@@ -224,7 +222,7 @@ handleDirectedCollision = (caster, callback) ->
     distance = intersections[0].distance
     callback() if (distance > 0) and (distance < 6)
 
-createZombie = ->
+spawnZombie = ->
   zombieGeometry = new THREE.BoxGeometry 10, 10, 10
   zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
   zombieMesh.material.size = THREE.DoubleSide
@@ -235,7 +233,7 @@ createZombie = ->
     continue if raycastDownwards vec
     vec.sub controls.getObject().position
     vec.y = 0
-    break if vec.length() > 8
+    break if vec.length() > 100
   zombieMesh.position.x = x
   zombieMesh.position.y = 5
   zombieMesh.position.z = z
@@ -253,8 +251,15 @@ zombieWasHit = (zombie, bullet) ->
   if !zombie.health
     zombies = _.without zombies, zombie
     scene.remove zombie
-  bullets = bullets.filter (item) -> item.mesh isnt bullet
+  bullets = bullets.filter (item) -> item isnt bullet
   scene.remove bullet
+
+addCrate = (pos) ->
+  crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
+  crateMesh.position.copy pos
+  scene.add crateMesh
+  crates.push crateMesh
+  crateMesh
 
 
 
@@ -284,13 +289,17 @@ updateBullets = ->
   for bullet in bullets
     bullet.ttl -= 1
     if bullet.ttl < 0
-      scene.remove bullet.mesh
+      scene.remove bullet
       newBullets = _.without newBullets, bullet
   bullets = newBullets
 
+times.zombieSpawned = Date.now() + 3000  # delay initial spawn
 updateZombies = ->
   if zombies.length < 9
-    createZombie()
+    now = Date.now()
+    if now - times.zombieSpawned > 1000  # do not spawn too frequently
+      spawnZombie()
+      times.zombieSpawned = now
 
   queue = []
   for zombie in zombies
@@ -305,14 +314,34 @@ updateZombies = ->
     for bullet in bullets
       vec = new THREE.Vector3
       vec.copy zombie.position
-      vec.sub bullet.mesh.position
+      vec.sub bullet.position
       if vec.length() < 8
         queue.push
           zombie: zombie
-          bullet: bullet.mesh
+          bullet: bullet
 
   for pair in queue
     zombieWasHit pair.zombie, pair.bullet
+
+times.crateSpawned = Date.now()
+arenaSize = 400
+updateCrates = ->
+  if crates.length < 100
+    now = Date.now()
+    if now - times.crateSpawned > 50  # do not spawn too frequently
+      x = randomInt arenaSize
+      z = randomInt arenaSize
+      position = new THREE.Vector3 x - arenaSize / 2, 100, z - arenaSize / 2
+      pitch =
+        x: randomFloat -Math.PI / 4, Math.PI / 4
+        z: randomFloat -Math.PI / 4, Math.PI / 4
+      yaw = randomFloat -Math.PI, Math.PI
+      crate = addCrate position
+      crate.rotateAroundWorldAxis THREE.axis.x, pitch.x
+      crate.rotateAroundWorldAxis THREE.axis.y, yaw
+      crate.rotateAroundWorldAxis THREE.axis.z, pitch.z
+      crate.applyCentralImpulse new THREE.Vector3 0, -20000, 0
+      times.crateSpawned = now
 
 
 
@@ -320,12 +349,13 @@ animate = ->
   requestAnimationFrame animate
   return if not controls.enabled
 
-  delta = Date.now() - time
+  delta = Date.now() - times.frame
   controls.update delta
-  time += delta
+  times.frame += delta
 
   updateBullets()
   updateZombies()
+  updateCrates()
   checkCollisions()
   scene.simulate delta, 1
 
