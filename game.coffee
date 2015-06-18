@@ -41,6 +41,7 @@ bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMappin
 grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
+moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
 
 # materials
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
@@ -61,6 +62,11 @@ crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   specular: 0xffffff
   shading: THREE.FlatShading
 , 0.7, 0
+moonMaterial = Physijs.createMaterial new THREE.MeshBasicMaterial
+  map: moonTexture
+  transparent: yes
+  side: THREE.DoubleSide
+, 1, 0
 
 # models
 lampModelDeferred = Promise.defer()
@@ -206,7 +212,6 @@ scene.add lampFlare
 # create basic geometry
 grassGeometry = new THREE.PlaneGeometry 1000, 1000, 100, 100
 grassGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
-
 grassTexture.wrapS = THREE.RepeatWrapping
 grassTexture.wrapT = THREE.RepeatWrapping
 grassTexture.repeat.set 40, 40
@@ -238,6 +243,10 @@ lampModelDeferred.promise.then (geometry) ->
   scene.add lampMesh
   lampMesh.add geometry
 
+moonGeometry = new THREE.PlaneGeometry 30, 30
+moonMesh = new Physijs.BoxMesh moonGeometry, moonMaterial, 0
+moonMeshDelta = new THREE.Vector3 -60, 120, -180
+scene.add moonMesh
 
 
 # create renderer and handle window resize event
@@ -478,6 +487,12 @@ updateCrates = ->
       crate.applyCentralImpulse new THREE.Vector3 0, -20000, 0
       times.crateSpawned = now
 
+updateMoon = ->
+  moonMesh.position.copy controls.getObject().position
+  moonMesh.position.add moonMeshDelta
+  moonMesh.lookAt controls.getObject().position
+
+
 
 
 animate = ->
@@ -491,7 +506,9 @@ animate = ->
   updateBullets()
   updateZombies delta
   updateCrates()
+  updateMoon()
   checkCollisions()
+
   scene.simulate delta, 1
   stats.update()
 
