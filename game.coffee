@@ -3,7 +3,7 @@ Physijs.scripts.worker = 'lib/physijs_worker.js'
 randomInt = (max) -> Math.floor(Math.random() * max)
 randomFloat = (min, max) -> (Math.random() * (min + max)) - min
 
-# augment three.js objects
+# augment three.js
 THREE.Object3D.prototype.rotateAroundWorldAxis = (axis, radians) ->
   rotWorldMatrix = new THREE.Matrix4()
   rotWorldMatrix.makeRotationAxis axis.normalize(), radians
@@ -15,6 +15,14 @@ THREE.axis =
   x: new THREE.Vector3 1, 0, 0
   y: new THREE.Vector3 0, 1, 0
   z: new THREE.Vector3 0, 0, 1
+
+deltaVector = (a, b) ->
+  vec = new THREE.Vector3
+  vec.copy b
+  vec.sub a
+  vec
+distance = (a, b) ->
+  deltaVector(a, b).length()
 
 # textures
 zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.jpeg', new THREE.UVMapping()
@@ -66,7 +74,14 @@ if hasPointerLock
   pointerLockChange = (event) ->
     pointerLockElement = document.pointerLockElement or document.mozPointerLockElement or document.webkitPointerLockElement
     if element is pointerLockElement
-      times.frame = Date.now()
+      now = Date.now()
+      pauseDuration = now - times.frame
+      for key of times
+        times[key] += pauseDuration
+      times.frame = now
+      if pauseDuration
+        for zombie in zombies
+          zombie.anger.irritatedSince += pauseDuration
       controls.enabled = yes
       blocker.style.display = 'none'
     else
@@ -117,7 +132,7 @@ camera = new THREE.PerspectiveCamera 75, window.innerWidth / window.innerHeight,
 
 scene = new Physijs.Scene()
 scene.fog = new THREE.Fog 0x000000, 0, 750
-scene.setGravity new THREE.Vector3 0, -50, 0
+scene.setGravity new THREE.Vector3 0, -100, 0
 
 light1 = new THREE.DirectionalLight 0xffffff, 0.1
 light1.position.set 1, 1, 1
@@ -210,8 +225,8 @@ raycastDownwards = (from) ->
   raycasterFeet.ray.origin.y -= 10
   intersections = raycasterFeet.intersectObjects crates
   if intersections.length
-    distance = intersections[0].distance
-    if (distance > 0) and (distance < 10)
+    dist = intersections[0].distance
+    if (dist > 0) and (dist < 10)
       return true
   return false
 
@@ -219,8 +234,8 @@ handleDirectedCollision = (caster, callback) ->
   caster.ray.origin.copy controls.getObject().position
   intersections = caster.intersectObjects crates
   if intersections.length
-    distance = intersections[0].distance
-    callback() if (distance > 0) and (distance < 6)
+    dist = intersections[0].distance
+    callback() if (dist > 0) and (dist < 6)
 
 max_health = 20
 initial_health = 15
@@ -243,13 +258,31 @@ spawnZombie = ->
   zombieMesh.position.z = z
   zombieMesh.lookAt controls.getObject().position
 
+  now = Date.now()
+
   zombieMesh.setHealth = (value, regenOffset = 0) ->
     @health = Math.max value, 0
     healthScaled = @health / max_health
     @material.color.setRGB 1, healthScaled, healthScaled
     @nextRegen = Date.now() + regenOffset
-  zombieMesh.nextRegen = Date.now()
+  zombieMesh.nextRegen = now
   zombieMesh.setHealth initial_health
+
+  zombieMesh.anger =
+    lastPosition: new THREE.Vector3
+    irritatedSince: now
+    clear: ->
+      @lastPosition.copy zombieMesh.position
+      @irritatedSince = Date.now()
+    goMad: ->
+      @clear()
+      @irritatedSince += 2000
+      for crate in crates
+        vec = deltaVector zombieMesh.position, crate.position
+        if vec.length() < 30
+          vec.y = 50
+          vec.multiplyScalar 300
+          crate.applyCentralImpulse vec
 
   zombies.push zombieMesh
   scene.add zombieMesh
@@ -304,7 +337,7 @@ updateBullets = ->
   bullets = newBullets
 
 times.zombieSpawned = Date.now() + 3000  # delay initial spawn
-updateZombies = ->
+updateZombies = (delta) ->
   if zombies.length < 9
     now = Date.now()
     if now - times.zombieSpawned > 1000  # do not spawn too frequently
@@ -325,11 +358,15 @@ updateZombies = ->
     if (zombie.health < max_health) and (zombie.nextRegen <= now)
       zombie.setHealth(zombie.health + 1, regenStep)
 
+    posDelta = distance zombie.position, zombie.anger.lastPosition
+    if posDelta / delta > 0.4
+      zombie.anger.clear()
+    else
+      if now - zombie.anger.irritatedSince > 3000
+        zombie.anger.goMad()
+
     for bullet in bullets
-      vec = new THREE.Vector3
-      vec.copy zombie.position
-      vec.sub bullet.position
-      if vec.length() < 8
+      if (distance zombie.position, bullet.position) < 8
         queue.push
           zombie: zombie
           bullet: bullet
@@ -368,7 +405,7 @@ animate = ->
   times.frame += delta
 
   updateBullets()
-  updateZombies()
+  updateZombies delta
   updateCrates()
   checkCollisions()
   scene.simulate delta, 1
