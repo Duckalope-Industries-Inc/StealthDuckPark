@@ -78,7 +78,7 @@ THREE.PointerLockControls = class
     vec
 
   update: (delta) =>
-    return null if not @enabled
+    return if not @enabled
 
     delta *= 0.1
 

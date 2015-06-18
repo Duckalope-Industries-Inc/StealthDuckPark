@@ -114,11 +114,11 @@ if hasPointerLock
           document.removeEventListener 'mozfullscreenchange', fullScreenChange
           element.requestPointerLock()
 
-          document.addEventListener 'fullscreenchange', fullScreenChange
-          document.addEventListener 'mozfullscreenchange', fullScreenChange
+      document.addEventListener 'fullscreenchange', fullScreenChange
+      document.addEventListener 'mozfullscreenchange', fullScreenChange
 
-          element.requestFullscreen = element.requestFullscreen or element.mozRequestFullscreen or element.mozRequestFullScreen
-          element.requestFullscreen
+      element.requestFullscreen = element.requestFullscreen or element.mozRequestFullscreen or element.mozRequestFullScreen
+      element.requestFullscreen()
     else
       element.requestPointerLock()
   , false
@@ -409,8 +409,6 @@ animate = ->
   updateCrates()
   checkCollisions()
   scene.simulate delta, 1
-
-
 
   renderer.render scene, camera
 
