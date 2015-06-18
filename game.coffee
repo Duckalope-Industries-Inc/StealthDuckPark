@@ -10,12 +10,12 @@ crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping
 zombieMaterial = Physijs.createMaterial new THREE.MeshPhongMaterial
   map: zombieTexture
   shading: THREE.FlatShading
-, 1, 0
+, 0, 0
 bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: bulletTexture
   specular: 0xffffff
   shading: THREE.FlatShading
-, 1, 0
+, 1, 1
 grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: grassTexture
   specular: 0xffffff
@@ -24,7 +24,7 @@ crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: crateTexture
   specular: 0xffffff
   shading: THREE.FlatShading
-, 1, 0
+, 0.7, 0
 
 # DOM
 blocker = document.getElementById 'blocker'
@@ -51,13 +51,13 @@ if hasPointerLock
     if element is pointerLockElement
       time = Date.now()
       controls.enabled = yes
-      blocker.style.display = 'none';
+      blocker.style.display = 'none'
     else
-      controls.enabled = no;
-      blocker.style.display = '-webkit-box';
-      blocker.style.display = '-moz-box';
-      blocker.style.display = 'box';
-      instructions.style.display = 'block';
+      controls.enabled = no
+      blocker.style.display = '-webkit-box'
+      blocker.style.display = '-moz-box'
+      blocker.style.display = 'box'
+      instructions.style.display = 'block'
 
   pointerLockError = (event) ->
     instructions.style.display = 'block'
@@ -118,16 +118,6 @@ flashlight.target = camera
 controls = new THREE.PointerLockControls camera
 scene.add controls.getObject()
 
-raycasterForDirection = (x, y, z) ->
-  caster = new THREE.Raycaster()
-  caster.ray.direction.set x, y, z
-  caster
-raycaster = raycasterForDirection 0, -1, 0
-raycasterNorth = raycasterForDirection 0, 0, -1
-raycasterSouth = raycasterForDirection 0, 0, 1
-raycasterWest = raycasterForDirection -1, 0, 0
-raycasterEast = raycasterForDirection 1, 0, 0
-
 
 
 # create basic geometry
@@ -181,8 +171,9 @@ window.addEventListener 'resize', ->
 document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
 
+  massMultiplier = 5
   bulletGeometry = new THREE.SphereGeometry 0.3
-  bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, 1
+  bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
 
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
@@ -193,8 +184,13 @@ document.addEventListener 'mousedown', (event) ->
   bulletMesh.position.z = shooterPosition.z + bulletDirection.z
   scene.add bulletMesh
 
-  bulletDirection.multiplyScalar 120
+  bulletDirection.multiplyScalar(120 * massMultiplier)
   bulletMesh.applyCentralImpulse bulletDirection
+
+  bulletMesh.addEventListener 'collision', (collider) ->
+    if collider in zombies
+      zombies = _.without zombies, collider
+      scene.remove collider
 
   bullets.push
     mesh: bulletMesh
@@ -207,7 +203,7 @@ updateBullets = ->
   newBullets = bullets
   for bullet in bullets
     bullet.ttl -= 1
-    if (bullet.ttl <= 0) or (bullet.mesh.position.y < 0)
+    if bullet.ttl < 0
       scene.remove bullet.mesh
       newBullets = _.without newBullets, bullet
   bullets = newBullets
@@ -217,38 +213,44 @@ updateZombies = ->
     zombieGeometry = new THREE.BoxGeometry 10, 10, 10
     zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterial, 10
     zombieMesh.material.size = THREE.DoubleSide
-    zombieMesh.position.x = Math.floor(Math.random() * 20 - 10) * 20
-    zombieMesh.position.y = 10
-    zombieMesh.position.z = Math.floor(Math.random() * 20 - 10) * 20
+    loop
+      x = randomInt 20
+      z = randomInt 20
+      zombieMesh.position.x = (x - 10) * 20
+      zombieMesh.position.y = if arena[x][z] then 15 else 5
+      zombieMesh.position.z = (z - 10) * 20
+      vec = new THREE.Vector3
+      vec.copy controls.getObject().position
+      vec.sub zombieMesh.position
+      break if vec.length() > 5
     zombieMesh.lookAt controls.getObject().position
     zombies.push zombieMesh
     scene.add zombieMesh
 
   for zombie in zombies
     zombie.lookAt controls.getObject().position
+    factor = 10
     dir =
-      x: (controls.getObject().position.x - zombie.position.x) / 300
-      y: (controls.getObject().position.y - zombie.position.y) / 300
-      z: (controls.getObject().position.z - zombie.position.z) / 300
-    zombie.position.x += dir.x
-    zombie.position.z += dir.z
+      x: (controls.getObject().position.x - zombie.position.x) / factor
+      y: (controls.getObject().position.y - zombie.position.y) / factor * 5
+      z: (controls.getObject().position.z - zombie.position.z) / factor
+    zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
 
 
 
 animate = ->
   requestAnimationFrame animate
-
-#  if controls.enabled  # disabled = game is paused
-#    checkCollisions()
-#    updateZombies()
+  return if not controls.enabled
 
   delta = Date.now() - time
   controls.update delta
   time += delta
 
-  if controls.enabled
-    updateBullets()
-    scene.simulate delta, 1
+  updateBullets()
+  updateZombies()
+  scene.simulate delta, 1
+
+
 
   renderer.render scene, camera
 
