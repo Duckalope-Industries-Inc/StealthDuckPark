@@ -7,6 +7,13 @@ THREE.PointerLockControls = class
   moveLeft = no
   moveRight = no
 
+  isOnObject = no
+  isNorthToObject = no
+  isSouthToObject = no
+  isWestToObject = no
+  isEastToObject = no
+  canJump = no
+
   velocity = new THREE.Vector3()
   PI_2 = Math.PI / 2
 
@@ -59,6 +66,12 @@ THREE.PointerLockControls = class
 
   getObject: -> yawObject
 
+  setOnObject: (val) -> isOnObject = canJump = val
+  setNorthToObject: (val) -> isNorthToObject = val
+  setSouthToObject: (val) -> isSouthToObject = val
+  setEastToObject: (val) -> isEastToObject = val
+  setWestToObject: (val) -> isWestToObject = val
+
   getDirection: (vec) ->
     rotation.set camera.rotation.x, yawObject.rotation.y, 0
     vec.copy(direction).applyEuler rotation
@@ -82,6 +95,22 @@ THREE.PointerLockControls = class
     if moveRight
       velocity.x += 0.12 * delta
 
+    if isOnObject
+      velocity.y = Math.max 0, velocity.y
+
+    noVelocity = yawObject.localToWorld new THREE.Vector3(0, 0, 0)
+    worldVelocity = yawObject.localToWorld velocity
+
+    if isNorthToObject
+      worldVelocity.z = Math.max noVelocity.z, worldVelocity.z
+    if isSouthToObject
+      worldVelocity.z = Math.min noVelocity.z, worldVelocity.z
+    if isWestToObject
+      worldVelocity.x = Math.max noVelocity.x, worldVelocity.x
+    if isEastToObject
+      worldVelocity.x = Math.min noVelocity.x, worldVelocity.x
+
+    velocity = yawObject.worldToLocal worldVelocity
     yawObject.translateX velocity.x
     yawObject.translateY velocity.y
     yawObject.translateZ velocity.z

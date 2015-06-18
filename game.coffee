@@ -167,6 +167,18 @@ window.addEventListener 'resize', ->
 
 
 
+# initialize manual collision checking
+raycasterForDirection = (x, y, z) ->
+  caster = new THREE.Raycaster()
+  caster.ray.direction.set x, y, z
+  caster
+raycasterFeet = raycasterForDirection 0, -1, 0
+raycasterNorth = raycasterForDirection 0, 0, -1
+raycasterSouth = raycasterForDirection 0, 0, 1
+raycasterWest = raycasterForDirection -1, 0, 0
+raycasterEast = raycasterForDirection 1, 0, 0
+
+
 # handle mouse events
 document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
@@ -236,6 +248,36 @@ updateZombies = ->
       z: (controls.getObject().position.z - zombie.position.z) / factor
     zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
 
+checkCollisions = ->
+  controls.setOnObject no
+  controls.setNorthToObject no
+  controls.setSouthToObject no
+  controls.setEastToObject no
+  controls.setWestToObject no
+
+  for d in [[0, 0], [-6, -6], [-6, 6], [6, -6], [6, 6]]
+    raycasterFeet.ray.origin.copy controls.getObject().position
+    raycasterFeet.ray.origin.x += d[0]
+    raycasterFeet.ray.origin.z += d[1]
+    raycasterFeet.ray.origin.y -= 10
+    intersections = raycasterFeet.intersectObjects crates
+    if intersections.length
+      distance = intersections[0].distance
+      if (distance > 0) and (distance < 10)
+        controls.setOnObject yes
+        break
+
+  detectDirectedCollision = (caster, callback) ->
+    caster.ray.origin.copy controls.getObject().position
+    intersections = caster.intersectObjects crates
+    if intersections.length
+      distance = intersections[0].distance
+      callback() if (distance > 0) and (distance < 6)
+  detectDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
+  detectDirectedCollision raycasterSouth, -> controls.setSouthToObject yes
+  detectDirectedCollision raycasterEast, -> controls.setEastToObject yes
+  detectDirectedCollision raycasterWest, -> controls.setWestToObject yes
+
 
 
 animate = ->
@@ -248,6 +290,7 @@ animate = ->
 
   updateBullets()
   updateZombies()
+  checkCollisions()
   scene.simulate delta, 1
 
 
