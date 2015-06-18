@@ -7,7 +7,7 @@ grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 
 # materials
-zombieMaterial = Physijs.createMaterial new THREE.MeshPhongMaterial
+zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
   map: zombieTexture
   shading: THREE.FlatShading
 , 0, 0
@@ -225,8 +225,15 @@ handleDirectedCollision = (caster, callback) ->
     callback() if (distance > 0) and (distance < 6)
 
 zombieHit = (zombie, bullet) ->
-  zombies = _.without zombies, zombie
-  scene.remove zombie
+  max_health = 5
+  if not ('health' of zombie)
+    zombie.health = max_health
+  zombie.health -= 1
+  color = 0x00ffff * zombie.health / max_health
+  zombie.material.color.setHex(color + 0xff0000)
+  if !zombie.health
+    zombies = _.without zombies, zombie
+    scene.remove zombie
   bullets = bullets.filter (item) -> item.mesh isnt bullet
   scene.remove bullet
 
@@ -263,9 +270,9 @@ updateBullets = ->
   bullets = newBullets
 
 updateZombies = ->
-  if zombies.length < 7
+  if zombies.length < 9
     zombieGeometry = new THREE.BoxGeometry 10, 10, 10
-    zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterial, 10
+    zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
     zombieMesh.material.size = THREE.DoubleSide
     loop
       x = (randomInt(20) - 10) * 20
