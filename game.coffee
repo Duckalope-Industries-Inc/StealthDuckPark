@@ -224,7 +224,26 @@ handleDirectedCollision = (caster, callback) ->
     distance = intersections[0].distance
     callback() if (distance > 0) and (distance < 6)
 
-zombieHit = (zombie, bullet) ->
+createZombie = ->
+  zombieGeometry = new THREE.BoxGeometry 10, 10, 10
+  zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
+  zombieMesh.material.size = THREE.DoubleSide
+  loop
+    x = (randomInt(20) - 10) * 20
+    z = (randomInt(20) - 10) * 20
+    vec = new THREE.Vector3 x, 25, z
+    continue if raycastDownwards vec
+    vec.sub controls.getObject().position
+    vec.y = 0
+    break if vec.length() > 8
+  zombieMesh.position.x = x
+  zombieMesh.position.y = 5
+  zombieMesh.position.z = z
+  zombieMesh.lookAt controls.getObject().position
+  zombies.push zombieMesh
+  scene.add zombieMesh
+
+zombieWasHit = (zombie, bullet) ->
   max_health = 5
   if not ('health' of zombie)
     zombie.health = max_health
@@ -271,24 +290,7 @@ updateBullets = ->
 
 updateZombies = ->
   if zombies.length < 9
-    zombieGeometry = new THREE.BoxGeometry 10, 10, 10
-    zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
-    zombieMesh.material.size = THREE.DoubleSide
-    loop
-      x = (randomInt(20) - 10) * 20
-      z = (randomInt(20) - 10) * 20
-      vec = new THREE.Vector3 x, 25, z
-      continue if raycastDownwards vec
-      vec = new THREE.Vector3
-      vec.copy controls.getObject().position
-      vec.sub zombieMesh.position
-      break if vec.length() > 8
-    zombieMesh.position.x = x
-    zombieMesh.position.y = 5
-    zombieMesh.position.z = z
-    zombieMesh.lookAt controls.getObject().position
-    zombies.push zombieMesh
-    scene.add zombieMesh
+    createZombie()
 
   queue = []
   for zombie in zombies
@@ -310,7 +312,7 @@ updateZombies = ->
           bullet: bullet.mesh
 
   for pair in queue
-    zombieHit pair.zombie, pair.bullet
+    zombieWasHit pair.zombie, pair.bullet
 
 
 
