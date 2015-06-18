@@ -50,6 +50,13 @@ crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   shading: THREE.FlatShading
 , 0.7, 0
 
+# models
+lampModelDeferred = Promise.defer()
+#lampLoader = new THREE.OBJLoader()
+#lampLoader.load 'res/StreetLamp.obj', (geometry) -> lampModelDeferred.resolve geometry
+lampLoader = new THREE.OBJMTLLoader()
+lampLoader.load 'res/StreetLamp.obj', 'res/StreetLamp.mtl', (mesh) -> lampModelDeferred.resolve mesh
+
 # DOM
 blocker = document.getElementById 'blocker'
 instructions = document.getElementById 'instructions'
@@ -151,9 +158,17 @@ light2.position.set -1, -0.5, 1
 scene.add light2
 
 flashlight = new THREE.SpotLight 0xffffff, 1.4, 240
-camera.add flashlight
+#camera.add flashlight
 flashlight.position.set 0, -1, 10
 flashlight.target = camera
+
+lampLight = new THREE.SpotLight 0xffffff, 3, 200
+lampLight.position.set 0, 80, 0
+lampLightTarget = new THREE.Object3D
+lampLight.target = lampLightTarget
+lampLightTarget.position.copy lampLight.position
+lampLightTarget.position.y -= 1
+scene.add lampLight
 
 controls = new THREE.PointerLockControls camera
 scene.add controls.getObject()
@@ -172,7 +187,26 @@ scene.add grassMesh
 
 crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
-# crates are created while rendering
+# crates are created during rendering
+
+lampModelDeferred.promise.then (geometry) ->
+  lampMaterial = new THREE.MeshLambertMaterial
+    color: 0xffffff
+    transparent: yes
+    opacity: 0
+
+  lampGeometry = new THREE.CylinderGeometry 1, 1, 30, 8
+  lampMesh = new Physijs.BoxMesh lampGeometry, lampMaterial, 0
+  lampMesh.scale.set 3, 3, 3
+  lampMesh.position.set -5, 0, 0
+
+  lampPartGeometry = new THREE.BoxGeometry 8, 1.5, 2.5
+  lampPartMesh = new Physijs.BoxMesh lampPartGeometry, lampMaterial, 0
+  lampPartMesh.position.set 5, 13.5, 0
+  lampMesh.add lampPartMesh
+
+  scene.add lampMesh
+  lampMesh.add geometry
 
 
 
@@ -228,6 +262,7 @@ document.addEventListener 'mousedown', (event) ->
 
 
 
+# raycasting
 raycastDownwards = (from) ->
   raycasterFeet.ray.origin.copy from
   raycasterFeet.ray.origin.y -= 10
@@ -245,6 +280,9 @@ handleDirectedCollision = (caster, callback) ->
     dist = intersections[0].distance
     callback() if (dist > 0) and (dist < 6)
 
+
+
+# zombies
 max_health = 20
 initial_health = 15
 spawnZombie = ->
@@ -305,6 +343,9 @@ zombieWasHit = (zombie, bullet) ->
   bullets = bullets.filter (item) -> item isnt bullet
   scene.remove bullet
 
+
+
+# crates
 addCrate = (pos) ->
   crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
   crateMesh.position.copy pos
@@ -314,6 +355,7 @@ addCrate = (pos) ->
 
 
 
+# frame methods
 checkCollisions = ->
   controls.setOnObject no
   controls.setNorthToObject no
