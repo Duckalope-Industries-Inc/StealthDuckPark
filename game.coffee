@@ -179,6 +179,7 @@ raycasterWest = raycasterForDirection -1, 0, 0
 raycasterEast = raycasterForDirection 1, 0, 0
 
 
+
 # handle mouse events
 document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
@@ -199,17 +200,58 @@ document.addEventListener 'mousedown', (event) ->
   bulletDirection.multiplyScalar(120 * massMultiplier)
   bulletMesh.applyCentralImpulse bulletDirection
 
-  bulletMesh.addEventListener 'collision', (collider) ->
-    if collider in zombies
-      zombies = _.without zombies, collider
-      scene.remove collider
-
   bullets.push
     mesh: bulletMesh
     ttl: 200
 , false
 
 
+
+raycastDownwards = (from) ->
+  raycasterFeet.ray.origin.copy from
+  raycasterFeet.ray.origin.y -= 10
+  intersections = raycasterFeet.intersectObjects crates
+  if intersections.length
+    distance = intersections[0].distance
+    if (distance > 0) and (distance < 10)
+      return true
+  return false
+
+handleDirectedCollision = (caster, callback) ->
+  caster.ray.origin.copy controls.getObject().position
+  intersections = caster.intersectObjects crates
+  if intersections.length
+    distance = intersections[0].distance
+    callback() if (distance > 0) and (distance < 6)
+
+zombieHit = (zombie, bullet) ->
+  zombies = _.without zombies, zombie
+  scene.remove zombie
+  bullets = bullets.filter (item) -> item.mesh isnt bullet
+  scene.remove bullet
+
+
+
+checkCollisions = ->
+  controls.setOnObject no
+  controls.setNorthToObject no
+  controls.setSouthToObject no
+  controls.setEastToObject no
+  controls.setWestToObject no
+
+  for d in [[0, 0], [-6, -6], [-6, 6], [6, -6], [6, 6]]
+    vec = new THREE.Vector3
+    vec.copy controls.getObject().position
+    vec.x += d[0]
+    vec.z += d[1]
+    if raycastDownwards vec
+      controls.setOnObject yes
+      break
+
+  handleDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
+  handleDirectedCollision raycasterSouth, -> controls.setSouthToObject yes
+  handleDirectedCollision raycasterEast, -> controls.setEastToObject yes
+  handleDirectedCollision raycasterWest, -> controls.setWestToObject yes
 
 updateBullets = ->
   newBullets = bullets
@@ -226,57 +268,42 @@ updateZombies = ->
     zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterial, 10
     zombieMesh.material.size = THREE.DoubleSide
     loop
-      x = randomInt 20
-      z = randomInt 20
-      zombieMesh.position.x = (x - 10) * 20
-      zombieMesh.position.y = if arena[x][z] then 15 else 5
-      zombieMesh.position.z = (z - 10) * 20
+      x = (randomInt(20) - 10) * 20
+      z = (randomInt(20) - 10) * 20
+      vec = new THREE.Vector3 x, 25, z
+      continue if raycastDownwards vec
       vec = new THREE.Vector3
       vec.copy controls.getObject().position
       vec.sub zombieMesh.position
-      break if vec.length() > 5
+      break if vec.length() > 8
+    zombieMesh.position.x = x
+    zombieMesh.position.y = 5
+    zombieMesh.position.z = z
     zombieMesh.lookAt controls.getObject().position
     zombies.push zombieMesh
     scene.add zombieMesh
 
+  queue = []
   for zombie in zombies
     zombie.lookAt controls.getObject().position
     factor = 10
     dir =
       x: (controls.getObject().position.x - zombie.position.x) / factor
-      y: (controls.getObject().position.y - zombie.position.y) / factor * 5
+      y: 0
       z: (controls.getObject().position.z - zombie.position.z) / factor
     zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
 
-checkCollisions = ->
-  controls.setOnObject no
-  controls.setNorthToObject no
-  controls.setSouthToObject no
-  controls.setEastToObject no
-  controls.setWestToObject no
+    for bullet in bullets
+      vec = new THREE.Vector3
+      vec.copy zombie.position
+      vec.sub bullet.mesh.position
+      if vec.length() < 8
+        queue.push
+          zombie: zombie
+          bullet: bullet.mesh
 
-  for d in [[0, 0], [-6, -6], [-6, 6], [6, -6], [6, 6]]
-    raycasterFeet.ray.origin.copy controls.getObject().position
-    raycasterFeet.ray.origin.x += d[0]
-    raycasterFeet.ray.origin.z += d[1]
-    raycasterFeet.ray.origin.y -= 10
-    intersections = raycasterFeet.intersectObjects crates
-    if intersections.length
-      distance = intersections[0].distance
-      if (distance > 0) and (distance < 10)
-        controls.setOnObject yes
-        break
-
-  detectDirectedCollision = (caster, callback) ->
-    caster.ray.origin.copy controls.getObject().position
-    intersections = caster.intersectObjects crates
-    if intersections.length
-      distance = intersections[0].distance
-      callback() if (distance > 0) and (distance < 6)
-  detectDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
-  detectDirectedCollision raycasterSouth, -> controls.setSouthToObject yes
-  detectDirectedCollision raycasterEast, -> controls.setEastToObject yes
-  detectDirectedCollision raycasterWest, -> controls.setWestToObject yes
+  for pair in queue
+    zombieHit pair.zombie, pair.bullet
 
 
 
