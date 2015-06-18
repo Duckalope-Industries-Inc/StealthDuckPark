@@ -29,6 +29,7 @@ zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.jpeg', new THREE.UVMapp
 bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
+flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
 
 # materials
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
@@ -149,6 +150,12 @@ scene = new Physijs.Scene()
 scene.fog = new THREE.Fog 0x000000, 0, 750
 scene.setGravity new THREE.Vector3 0, -100, 0
 
+controls = new THREE.PointerLockControls camera
+scene.add controls.getObject()
+
+
+
+# create lighting
 light1 = new THREE.DirectionalLight 0xffffff, 0.1
 light1.position.set 1, 1, 1
 scene.add light1
@@ -158,25 +165,28 @@ light2.position.set -1, -0.5, 1
 scene.add light2
 
 flashlight = new THREE.SpotLight 0xffffff, 1.4, 240
-#camera.add flashlight
+camera.add flashlight
 flashlight.position.set 0, -1, 10
 flashlight.target = camera
 
-lampLight = new THREE.SpotLight 0xffffff, 3, 200
-lampLight.position.set 0, 80, 0
+lampLight = new THREE.SpotLight 0xffffff, 2.2, 200
+lampLight.position.set 16.5, 38, 0
 lampLightTarget = new THREE.Object3D
 lampLight.target = lampLightTarget
 lampLightTarget.position.copy lampLight.position
 lampLightTarget.position.y -= 1
 scene.add lampLight
 
-controls = new THREE.PointerLockControls camera
-scene.add controls.getObject()
+flareColor = new THREE.Color 0xffffff
+flareColor.setHSL 0.08, 0.8, 1
+lampFlare = new THREE.LensFlare flareTexture, 384, 0, THREE.AdditiveBlending, flareColor
+lampFlare.position.set 16.5, 38, 0.01
+scene.add lampFlare
 
 
 
 # create basic geometry
-grassGeometry = new THREE.PlaneGeometry 2000, 2000, 100, 100
+grassGeometry = new THREE.PlaneGeometry 1000, 1000, 100, 100
 grassGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
 
 grassTexture.wrapS = THREE.RepeatWrapping
@@ -211,7 +221,7 @@ lampModelDeferred.promise.then (geometry) ->
 
 
 # create renderer and handle window resize event
-renderer = new THREE.WebGLRenderer()
+renderer = new THREE.WebGLRenderer alpha: yes
 renderer.setSize window.innerWidth, window.innerHeight
 document.body.appendChild renderer.domElement
 
