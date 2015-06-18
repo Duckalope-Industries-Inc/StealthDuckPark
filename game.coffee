@@ -222,10 +222,13 @@ handleDirectedCollision = (caster, callback) ->
     distance = intersections[0].distance
     callback() if (distance > 0) and (distance < 6)
 
+max_health = 20
+initial_health = 15
 spawnZombie = ->
   zombieGeometry = new THREE.BoxGeometry 10, 10, 10
   zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
   zombieMesh.material.size = THREE.DoubleSide
+
   loop
     x = (randomInt(20) - 10) * 20
     z = (randomInt(20) - 10) * 20
@@ -234,20 +237,27 @@ spawnZombie = ->
     vec.sub controls.getObject().position
     vec.y = 0
     break if vec.length() > 100
+
   zombieMesh.position.x = x
   zombieMesh.position.y = 5
   zombieMesh.position.z = z
   zombieMesh.lookAt controls.getObject().position
+
+  zombieMesh.setHealth = (value, regenOffset = 0) ->
+    @health = Math.max value, 0
+    healthScaled = @health / max_health
+    @material.color.setRGB 1, healthScaled, healthScaled
+    @nextRegen = Date.now() + regenOffset
+  zombieMesh.nextRegen = Date.now()
+  zombieMesh.setHealth initial_health
+
   zombies.push zombieMesh
   scene.add zombieMesh
 
+timeTillRegen = 2000
+regenStep = 300
 zombieWasHit = (zombie, bullet) ->
-  max_health = 5
-  if not ('health' of zombie)
-    zombie.health = max_health
-  zombie.health -= 1
-  color = 0x00ffff * zombie.health / max_health
-  zombie.material.color.setHex(color + 0xff0000)
+  zombie.setHealth(zombie.health - 5, timeTillRegen)
   if !zombie.health
     zombies = _.without zombies, zombie
     scene.remove zombie
@@ -302,6 +312,7 @@ updateZombies = ->
       times.zombieSpawned = now
 
   queue = []
+  now = Date.now()
   for zombie in zombies
     zombie.lookAt controls.getObject().position
     factor = 10
@@ -310,6 +321,9 @@ updateZombies = ->
       y: 0
       z: (controls.getObject().position.z - zombie.position.z) / factor
     zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
+
+    if (zombie.health < max_health) and (zombie.nextRegen <= now)
+      zombie.setHealth(zombie.health + 1, regenStep)
 
     for bullet in bullets
       vec = new THREE.Vector3
