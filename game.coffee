@@ -115,6 +115,11 @@ if hasPointerLock
           document.removeEventListener 'fullscreenchange', fullScreenChange
           document.removeEventListener 'mozfullscreenchange', fullScreenChange
           document.removeEventListener 'webkitfullscreenchange', fullScreenChange
+
+          document.addEventListener 'fullscreenchange', pointerLockChange
+          document.addEventListener 'mozfullscreenchange', pointerLockChange
+          document.addEventListener 'webkitfullscreenchange', pointerLockChange
+
           element.requestPointerLock()
 
       document.addEventListener 'fullscreenchange', fullScreenChange
