@@ -104,20 +104,23 @@ if hasPointerLock
 
   instructions.addEventListener 'click', (event) ->
     instructions.style.display = 'none'
-    element.requestPointerLock = element.requestPointerLock or element.mozRequestPointerLock or element.webkitRequestPointerLock
 
-    if /Firefox/i.test navigator.userAgent
+    element.requestPointerLock = element.requestPointerLock or element.mozRequestPointerLock or element.webkitRequestPointerLock
+    element.requestFullscreen = element.requestFullscreen or element.mozRequestFullscreen or element.mozRequestFullScreen or element.webkitRequestFullscreen
+
+    if element.requestFullscreen
       fullScreenChange = (event) ->
-        fullScreenElement = document.fullscreenElement or document.mozFullscreenElement or document.mozFullScreenElement
+        fullScreenElement = document.fullscreenElement or document.mozFullscreenElement or document.mozFullScreenElement or document.webkitFullscreenElement
         if element is fullScreenElement
           document.removeEventListener 'fullscreenchange', fullScreenChange
           document.removeEventListener 'mozfullscreenchange', fullScreenChange
+          document.removeEventListener 'webkitfullscreenchange', fullScreenChange
           element.requestPointerLock()
 
       document.addEventListener 'fullscreenchange', fullScreenChange
       document.addEventListener 'mozfullscreenchange', fullScreenChange
+      document.addEventListener 'webkitfullscreenchange', fullScreenChange
 
-      element.requestFullscreen = element.requestFullscreen or element.mozRequestFullscreen or element.mozRequestFullScreen
       element.requestFullscreen()
     else
       element.requestPointerLock()
