@@ -3,6 +3,17 @@ Physijs.scripts.worker = 'lib/physijs_worker.js'
 randomInt = (max) -> Math.floor(Math.random() * max)
 randomFloat = (min, max) -> (Math.random() * (min + max)) - min
 
+# show FPS
+stats = new Stats()
+stats.setMode(0)  # 0: fps, 1: ms
+
+stats.domElement.style.position = 'absolute'
+stats.domElement.style.left = '0px'
+stats.domElement.style.top = '0px'
+
+document.getElementById('Stats-output').appendChild stats.domElement
+
+
 # augment three.js
 THREE.Object3D.prototype.rotateAroundWorldAxis = (axis, radians) ->
   rotWorldMatrix = new THREE.Matrix4()
@@ -175,6 +186,13 @@ lampLightTarget = new THREE.Object3D
 lampLight.target = lampLightTarget
 lampLightTarget.position.copy lampLight.position
 lampLightTarget.position.y -= 1
+lampLight.castShadow = yes
+lampLight.shadowCameraNear = 1
+lampLight.shadowCameraFar = 40
+lampLight.shadowCameraFov = 175
+lampLight.shadowMapWidth = 2048
+lampLight.shadowMapHeight = 2048
+#lampLight.shadowCameraVisible = yes  # use for adjusting FOV
 scene.add lampLight
 
 flareColor = new THREE.Color 0xffffff
@@ -193,6 +211,7 @@ grassTexture.wrapS = THREE.RepeatWrapping
 grassTexture.wrapT = THREE.RepeatWrapping
 grassTexture.repeat.set 40, 40
 grassMesh = new Physijs.PlaneMesh grassGeometry, grassMaterial, 0
+grassMesh.receiveShadow = yes
 scene.add grassMesh
 
 crateMaterial.color.setHSL 0.75, 0.75, 0.87
@@ -207,6 +226,7 @@ lampModelDeferred.promise.then (geometry) ->
 
   lampGeometry = new THREE.CylinderGeometry 1, 1, 30, 8
   lampMesh = new Physijs.BoxMesh lampGeometry, lampMaterial, 0
+  lampMesh.castShadow = yes
   lampMesh.scale.set 3, 3, 3
   lampMesh.position.set -5, 0, 0
 
@@ -223,6 +243,7 @@ lampModelDeferred.promise.then (geometry) ->
 # create renderer and handle window resize event
 renderer = new THREE.WebGLRenderer alpha: yes
 renderer.setSize window.innerWidth, window.innerHeight
+renderer.shadowMapEnabled = yes
 document.body.appendChild renderer.domElement
 
 window.addEventListener 'resize', ->
@@ -263,7 +284,7 @@ document.addEventListener 'mousedown', (event) ->
   bulletMesh.position.z = shooterPosition.z + bulletDirection.z
   scene.add bulletMesh
 
-  bulletDirection.multiplyScalar(120 * massMultiplier)
+  bulletDirection.multiplyScalar(150 * massMultiplier)
   bulletMesh.applyCentralImpulse bulletDirection
 
   bulletMesh.ttl = 200
@@ -299,6 +320,7 @@ spawnZombie = ->
   zombieGeometry = new THREE.BoxGeometry 10, 10, 10
   zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
   zombieMesh.material.size = THREE.DoubleSide
+  zombieMesh.castShadow = yes
 
   loop
     x = (randomInt(20) - 10) * 20
@@ -359,6 +381,8 @@ zombieWasHit = (zombie, bullet) ->
 addCrate = (pos) ->
   crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
   crateMesh.position.copy pos
+  crateMesh.castShadow = yes
+#  crateMesh.receiveShadow = yes  # -25% FPS ;)
   scene.add crateMesh
   crates.push crateMesh
   crateMesh
@@ -469,6 +493,7 @@ animate = ->
   updateCrates()
   checkCollisions()
   scene.simulate delta, 1
+  stats.update()
 
   renderer.render scene, camera
 
