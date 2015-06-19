@@ -259,26 +259,27 @@ lampModelDeferred.promise().then (mesh) ->
   lampMesh.add mesh
 
 fenceModelDeferred.promise().then (object) ->
-  createFence = (position, rotate) ->
+  createFence = (position, rotation) ->
     fenceGeometry = new THREE.BoxGeometry fenceSize, 160, 4
     fenceMesh = new Physijs.BoxMesh fenceGeometry, transparentMaterial, 0
     fenceMesh.position.copy position
-    fenceMesh.rotation.y = Math.PI / 2 if rotate
+    fenceMesh.rotation.y = Math.PI / 2 * rotation
 
     fenceModelMesh = object.children[0].clone()
     fenceModelMesh.material = fenceMaterial
     fenceModelMesh.receiveShadow = yes
-    fenceModelMesh.scale.set 56.5, 15, 15
+    fenceModelMesh.scale.set 56.5, 8, 15
     fenceModelMesh.position.x -= 29.5
+    fenceModelMesh.position.y += 13
     fenceMesh.add fenceModelMesh
 
     scene.add fenceMesh
     fences.push fenceMesh
     fenceMesh
-  createFence new THREE.Vector3(fenceSize / 2, 0, 0), yes
-  createFence new THREE.Vector3(-fenceSize / 2, 0, 0), yes
-  createFence new THREE.Vector3(0, 0, fenceSize / 2)
-  createFence new THREE.Vector3(0, 0, -fenceSize / 2)
+  createFence new THREE.Vector3(0, 0, -fenceSize / 2), 0
+  createFence new THREE.Vector3(-fenceSize / 2, 0, 0), 1
+  createFence new THREE.Vector3(0, 0, fenceSize / 2), 2
+  createFence new THREE.Vector3(fenceSize / 2, 0, 0), 3
 
 gunParentMesh =
   fire: ->
