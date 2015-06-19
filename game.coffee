@@ -42,6 +42,7 @@ grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
 moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
+fenceTexture = THREE.ImageUtils.loadTexture 'res/fence.png'
 
 # materials
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
@@ -69,12 +70,22 @@ moonMaterial = Physijs.createMaterial new THREE.MeshBasicMaterial
   side: THREE.DoubleSide
 , 1, 0
 
+transparentMaterial = new THREE.MeshLambertMaterial
+  color: 0xffffff
+  transparent: yes
+  opacity: 0
+fenceMaterial = new THREE.MeshLambertMaterial
+  map: fenceTexture
+  specular: 0xffffff
+
 # models
 lampModelDeferred = Deferred()
-#lampLoader = new THREE.OBJLoader()
-#lampLoader.load 'res/StreetLamp.obj', (geometry) -> lampModelDeferred.resolve geometry
 lampLoader = new THREE.OBJMTLLoader()
 lampLoader.load 'res/StreetLamp.obj', 'res/StreetLamp.mtl', (mesh) -> lampModelDeferred.resolve mesh
+
+fenceModelDeferred = Deferred()
+fenceLoader = new THREE.OBJLoader()
+fenceLoader.load 'res/wall.obj', (geometry) -> fenceModelDeferred.resolve geometry
 
 # DOM
 blocker = document.getElementById 'blocker'
@@ -88,6 +99,7 @@ times =
 crates = []
 bullets = []
 zombies = []
+fences = []
 
 
 
@@ -174,21 +186,25 @@ light2 = new THREE.DirectionalLight 0xffffff, 0.05
 light2.position.set -1, -0.5, 1
 scene.add light2
 
+light3 = new THREE.DirectionalLight 0xffffff, 0.1
+light3.position.set -0.5, 1, -1
+scene.add light3
+
 flashlight = new THREE.SpotLight 0xffffff, 1.4, 240
 camera.add flashlight
 flashlight.position.set 0, -1, 10
 flashlight.target = camera
 
 lampLight = new THREE.SpotLight 0xffffff, 2.2, 200
-lampLight.position.set 16.5, 38, 0
+lampLight.position.set 23.5, 50, 0
 lampLightTarget = new THREE.Object3D
 lampLight.target = lampLightTarget
 lampLightTarget.position.copy lampLight.position
 lampLightTarget.position.y -= 1
 lampLight.castShadow = yes
 lampLight.shadowCameraNear = 1
-lampLight.shadowCameraFar = 40
-lampLight.shadowCameraFov = 175
+lampLight.shadowCameraFar = 55
+lampLight.shadowCameraFov = 173
 lampLight.shadowMapWidth = 1536
 lampLight.shadowMapHeight = 1536
 #lampLight.shadowCameraVisible = yes  # use for adjusting FOV
@@ -197,13 +213,15 @@ scene.add lampLight
 flareColor = new THREE.Color 0xffffff
 flareColor.setHSL 0.08, 0.8, 1
 lampFlare = new THREE.LensFlare flareTexture, 384, 0, THREE.AdditiveBlending, flareColor
-lampFlare.position.set 16.5, 38, 0.01
+lampFlare.position.copy lampLight.position
+lampFlare.position.z += 0.01  # flares occasionally don't appear on 0 coordinates
 scene.add lampFlare
 
 
 
 # create basic geometry
-grassGeometry = new THREE.PlaneGeometry 1000, 1000, 100, 100
+fenceSize = 600
+grassGeometry = new THREE.PlaneGeometry fenceSize, fenceSize, fenceSize / 10, fenceSize / 10
 grassGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
 grassTexture.wrapS = THREE.RepeatWrapping
 grassTexture.wrapT = THREE.RepeatWrapping
@@ -216,25 +234,42 @@ crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
 # crates are created during rendering
 
-lampModelDeferred.promise().then (geometry) ->
-  lampMaterial = new THREE.MeshLambertMaterial
-    color: 0xffffff
-    transparent: yes
-    opacity: 0
-
+lampModelDeferred.promise().then (mesh) ->
   lampGeometry = new THREE.CylinderGeometry 1, 1, 30, 8
-  lampMesh = new Physijs.BoxMesh lampGeometry, lampMaterial, 0
+  lampMesh = new Physijs.BoxMesh lampGeometry, transparentMaterial, 0
   lampMesh.castShadow = yes
-  lampMesh.scale.set 3, 3, 3
+  lampMesh.scale.set 4, 4, 4
   lampMesh.position.set -5, 0, 0
 
   lampPartGeometry = new THREE.BoxGeometry 8, 1.5, 2.5
-  lampPartMesh = new Physijs.BoxMesh lampPartGeometry, lampMaterial, 0
+  lampPartMesh = new Physijs.BoxMesh lampPartGeometry, transparentMaterial, 0
   lampPartMesh.position.set 5, 13.5, 0
   lampMesh.add lampPartMesh
 
   scene.add lampMesh
-  lampMesh.add geometry
+  lampMesh.add mesh
+
+fenceModelDeferred.promise().then (object) ->
+  createFence = (position, rotate) ->
+    fenceGeometry = new THREE.BoxGeometry fenceSize, 160, 4
+    fenceMesh = new Physijs.BoxMesh fenceGeometry, transparentMaterial, 0
+    fenceMesh.position.copy position
+    fenceMesh.rotation.y = Math.PI / 2 if rotate
+
+    fenceModelMesh = object.children[0].clone()
+    fenceModelMesh.material = fenceMaterial
+    fenceModelMesh.receiveShadow = yes
+    fenceModelMesh.scale.set 56.5, 15, 15
+    fenceModelMesh.position.x -= 29.5
+    fenceMesh.add fenceModelMesh
+
+    scene.add fenceMesh
+    fences.push fenceMesh
+    fenceMesh
+  createFence new THREE.Vector3(fenceSize / 2, 0, 0), yes
+  createFence new THREE.Vector3(-fenceSize / 2, 0, 0), yes
+  createFence new THREE.Vector3(0, 0, fenceSize / 2)
+  createFence new THREE.Vector3(0, 0, -fenceSize / 2)
 
 moonGeometry = new THREE.PlaneGeometry 30, 30
 moonMesh = new Physijs.BoxMesh moonGeometry, moonMaterial, 0
@@ -276,7 +311,7 @@ document.addEventListener 'mousedown', (event) ->
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
 
-  shootBullet controls.getObject().position, null, bulletDirection
+  shootBullet controls.getObject().position, null, bulletDirection, 3
 , false
 
 
@@ -294,7 +329,7 @@ raycastDownwards = (from) ->
 
 handleDirectedCollision = (caster, callback) ->
   caster.ray.origin.copy controls.getObject().position
-  intersections = caster.intersectObjects crates
+  intersections = caster.intersectObjects(_.union crates, fences)
   if intersections.length
     dist = intersections[0].distance
     callback() if (dist > 0) and (dist < 6)
