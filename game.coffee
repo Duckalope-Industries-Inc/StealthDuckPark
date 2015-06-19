@@ -70,7 +70,7 @@ moonMaterial = Physijs.createMaterial new THREE.MeshBasicMaterial
 , 1, 0
 
 # models
-lampModelDeferred = Promise.defer()
+lampModelDeferred = Deferred()
 #lampLoader = new THREE.OBJLoader()
 #lampLoader.load 'res/StreetLamp.obj', (geometry) -> lampModelDeferred.resolve geometry
 lampLoader = new THREE.OBJMTLLoader()
@@ -224,7 +224,7 @@ crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
 # crates are created during rendering
 
-lampModelDeferred.promise.then (geometry) ->
+lampModelDeferred.promise().then (geometry) ->
   lampMaterial = new THREE.MeshLambertMaterial
     color: 0xffffff
     transparent: yes
