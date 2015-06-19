@@ -45,26 +45,24 @@ fenceTexture = THREE.ImageUtils.loadTexture 'res/fence.png'
 muzzleFlashTexture = THREE.ImageUtils.loadTexture 'res/muzzle_flash.png'
 
 # materials
-zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
+zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial(
   map: zombieTexture
   transparent: yes
   shading: THREE.FlatShading
-, 0, 0
-grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
+), 0, 0
+grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
   map: grassTexture
   specular: 0xffffff
-, 0.7, 0
-crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
+), 0.7, 0
+crateMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
   map: crateTexture
   specular: 0xffffff
   shading: THREE.FlatShading
-, 0.7, 0
-moonMaterial = Physijs.createMaterial new THREE.MeshBasicMaterial
-  map: moonTexture
-  transparent: yes
-  side: THREE.DoubleSide
-, 1, 0
-moonMaterial.depthWrite = no
+), 0.7, 0
+bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
+  color: 0x222222
+  specular: 0xffffff
+), 0, 1
 
 transparentMaterial = new THREE.MeshLambertMaterial
   color: 0xffffff
@@ -73,10 +71,14 @@ transparentMaterial = new THREE.MeshLambertMaterial
 fenceMaterial = new THREE.MeshLambertMaterial
   map: fenceTexture
   specular: 0xffffff
+moonMaterial = new THREE.MeshBasicMaterial
+  map: moonTexture
+  transparent: yes
+  side: THREE.DoubleSide
+moonMaterial.depthWrite = no
 gunMaterial = new THREE.MeshLambertMaterial
   color: 0x222222
   specular: 0xffffff
-bulletMaterial = gunMaterial
 muzzleFlashMaterial = new THREE.MeshBasicMaterial
   map: muzzleFlashTexture
   specular: 0xffffff
