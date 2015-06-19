@@ -138,14 +138,6 @@ if hasPointerLock
       fullScreenChange = (event) ->
         fullScreenElement = document.fullscreenElement or document.mozFullscreenElement or document.mozFullScreenElement or document.webkitFullscreenElement
         if element is fullScreenElement
-          document.removeEventListener 'fullscreenchange', fullScreenChange
-          document.removeEventListener 'mozfullscreenchange', fullScreenChange
-          document.removeEventListener 'webkitfullscreenchange', fullScreenChange
-
-          document.addEventListener 'fullscreenchange', pointerLockChange
-          document.addEventListener 'mozfullscreenchange', pointerLockChange
-          document.addEventListener 'webkitfullscreenchange', pointerLockChange
-
           element.requestPointerLock()
 
       document.addEventListener 'fullscreenchange', fullScreenChange
@@ -487,7 +479,6 @@ updateZombies = (delta) ->
     # zombies will shoot you now!
     if (getRandomInt 1, 95) % 94 == 1
       shootBullet zombie.position, controls.getObject().position, null, 10
-
 
   for pair in queue
     zombieWasHit pair.zombie, pair.bullet
