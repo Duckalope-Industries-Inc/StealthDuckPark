@@ -37,7 +37,6 @@ distance = (a, b) ->
 
 # textures
 zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.png', new THREE.UVMapping()
-bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
@@ -50,11 +49,6 @@ zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
   transparent: yes
   shading: THREE.FlatShading
 , 0, 0
-bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
-  map: bulletTexture
-  specular: 0xffffff
-  shading: THREE.FlatShading
-, 1, 1
 grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
   map: grassTexture
   specular: 0xffffff
@@ -77,6 +71,10 @@ transparentMaterial = new THREE.MeshLambertMaterial
 fenceMaterial = new THREE.MeshLambertMaterial
   map: fenceTexture
   specular: 0xffffff
+gunMaterial = new THREE.MeshLambertMaterial
+  color: 0x222222
+  specular: 0xffffff
+bulletMaterial = gunMaterial
 
 # models
 lampModelDeferred = Deferred()
@@ -86,6 +84,10 @@ lampLoader.load 'res/StreetLamp.obj', 'res/StreetLamp.mtl', (mesh) -> lampModelD
 fenceModelDeferred = Deferred()
 fenceLoader = new THREE.OBJLoader()
 fenceLoader.load 'res/wall.obj', (geometry) -> fenceModelDeferred.resolve geometry
+
+gunModelDeferred = Deferred()
+gunLoader = new THREE.OBJLoader()
+gunLoader.load 'res/ingram.obj', (geometry) -> gunModelDeferred.resolve geometry
 
 # DOM
 blocker = document.getElementById 'blocker'
@@ -271,6 +273,15 @@ fenceModelDeferred.promise().then (object) ->
   createFence new THREE.Vector3(0, 0, fenceSize / 2)
   createFence new THREE.Vector3(0, 0, -fenceSize / 2)
 
+gunModelDeferred.promise().then (object) ->
+  object.children[0].material = gunMaterial
+  object.position.x = 5
+  object.position.y = -3
+  object.position.z = -6
+  object.rotation.x = Math.PI * 0.05
+  object.rotation.y = Math.PI
+  camera.add object
+
 moonGeometry = new THREE.PlaneGeometry 30, 30
 moonMesh = new Physijs.BoxMesh moonGeometry, moonMaterial, 0
 moonMeshDelta = new THREE.Vector3 -60, 120, -180
@@ -311,7 +322,7 @@ document.addEventListener 'mousedown', (event) ->
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
 
-  shootBullet controls.getObject().position, null, bulletDirection, 3
+  shootBullet controls.getObject().position, null, bulletDirection, 10
 , false
 
 
