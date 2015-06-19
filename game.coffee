@@ -36,7 +36,7 @@ distance = (a, b) ->
   deltaVector(a, b).length()
 
 # textures
-zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.jpeg', new THREE.UVMapping()
+zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.png', new THREE.UVMapping()
 bulletTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
 grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
 crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
@@ -46,6 +46,7 @@ moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
 # materials
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
   map: zombieTexture
+  transparent: yes
   shading: THREE.FlatShading
 , 0, 0
 bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial
