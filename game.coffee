@@ -415,14 +415,17 @@ checkCollisions = ->
   controls.setEastToObject no
   controls.setWestToObject no
 
-  for d in [[0, 0], [-6, -6], [-6, 6], [6, -6], [6, 6]]
-    vec = new THREE.Vector3
-    vec.copy controls.getObject().position
-    vec.x += d[0]
-    vec.z += d[1]
-    if raycastDownwards vec
-      controls.setOnObject yes
-      break
+  if controls.getObject().position.y <= 10
+    controls.setOnObject yes
+  else
+    for d in [[0, 0], [-6, -6], [-6, 6], [6, -6], [6, 6]]
+      vec = new THREE.Vector3
+      vec.copy controls.getObject().position
+      vec.x += d[0]
+      vec.z += d[1]
+      if raycastDownwards vec
+        controls.setOnObject yes
+        break
 
   handleDirectedCollision raycasterNorth, -> controls.setNorthToObject yes
   handleDirectedCollision raycasterSouth, -> controls.setSouthToObject yes

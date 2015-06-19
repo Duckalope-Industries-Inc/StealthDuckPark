@@ -47,7 +47,7 @@ THREE.PointerLockControls = class
         when 39, 68  # right, d
           moveRight = yes
         when 32  # space
-          velocity.y = 5
+          velocity.y = 5 if canJump
     , false
 
     document.addEventListener 'keyup', (event) ->
