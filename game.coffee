@@ -430,6 +430,9 @@ updateBullets = ->
       newBullets = _.without newBullets, bullet
   bullets = newBullets
 
+getRandomInt = (min, max) ->
+    Math.floor(Math.random() * (max - min + 1)) + min
+
 times.zombieSpawned = Date.now() + 3000  # delay initial spawn
 updateZombies = (delta) ->
   if zombies.length < 9
@@ -464,6 +467,41 @@ updateZombies = (delta) ->
         queue.push
           zombie: zombie
           bullet: bullet
+
+    # zombies will shoot you now!
+    if (getRandomInt 1, 95) % 94 == 1
+      massMultiplier = 5
+      bulletGeometry = new THREE.SphereGeometry 0.3
+      bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
+
+      bulletDirection = new THREE.Vector3()
+      # controls.getDirection bulletDirection
+
+      shooterPosition = zombie.position
+      position = controls.getObject().position
+
+
+      bulletDirection.x = (- position.x + shooterPosition.x)/70.0
+      bulletDirection.z = (- position.z + shooterPosition.z)/70.0
+      bulletDirection.y = (- position.y + shooterPosition.y)/70.0
+
+      # console.log(bulletDirection)
+
+      bulletMesh.position.x = shooterPosition.x - bulletDirection.x*15
+      bulletMesh.position.y = shooterPosition.y - bulletDirection.y*15
+      bulletMesh.position.z = shooterPosition.z - bulletDirection.z*15
+      scene.add bulletMesh
+
+      bulletDirection.x = (-1)*bulletDirection.x
+      bulletDirection.z = (-1)*bulletDirection.z
+      bulletDirection.y = (-1)*bulletDirection.y
+
+      bulletDirection.multiplyScalar(150 * massMultiplier)
+      bulletMesh.applyCentralImpulse bulletDirection
+
+      bulletMesh.ttl = 200
+      bullets.push bulletMesh
+
 
   for pair in queue
     zombieWasHit pair.zombie, pair.bullet
