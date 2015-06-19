@@ -64,6 +64,7 @@ moonMaterial = Physijs.createMaterial new THREE.MeshBasicMaterial
   transparent: yes
   side: THREE.DoubleSide
 , 1, 0
+moonMaterial.depthWrite = no
 
 transparentMaterial = new THREE.MeshLambertMaterial
   color: 0xffffff
