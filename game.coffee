@@ -281,24 +281,10 @@ raycasterEast = raycasterForDirection 1, 0, 0
 document.addEventListener 'mousedown', (event) ->
   event.preventDefault()
 
-  massMultiplier = 5
-  bulletGeometry = new THREE.SphereGeometry 0.3
-  bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
-
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
 
-  shooterPosition = controls.getObject().position
-  bulletMesh.position.x = shooterPosition.x + bulletDirection.x
-  bulletMesh.position.y = shooterPosition.y + bulletDirection.y
-  bulletMesh.position.z = shooterPosition.z + bulletDirection.z
-  scene.add bulletMesh
-
-  bulletDirection.multiplyScalar(150 * massMultiplier)
-  bulletMesh.applyCentralImpulse bulletDirection
-
-  bulletMesh.ttl = 200
-  bullets.push bulletMesh
+  shootBullet controls.getObject().position, null, bulletDirection
 , false
 
 
@@ -399,6 +385,36 @@ addCrate = (pos) ->
 
 
 
+# bullets
+shootBullet = (from, atPosition=null, inDirection=null, initialDistance=1) ->
+  massMultiplier = 5
+  bulletGeometry = new THREE.SphereGeometry 0.3
+  bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
+
+  if atPosition
+    direction = new THREE.Vector3
+    direction.copy atPosition
+    direction.sub from
+  else
+    direction = new THREE.Vector3
+    direction.copy inDirection
+  direction.normalize()
+
+  boostedDirection = new THREE.Vector3
+  boostedDirection.copy direction
+  boostedDirection.multiplyScalar initialDistance
+  bulletMesh.position.copy from
+  bulletMesh.position.add boostedDirection
+  scene.add bulletMesh
+
+  direction.multiplyScalar(150 * massMultiplier)
+  bulletMesh.applyCentralImpulse direction
+
+  bulletMesh.ttl = 200
+  bullets.push bulletMesh
+
+
+
 # frame methods
 checkCollisions = ->
   controls.setOnObject no
@@ -470,29 +486,7 @@ updateZombies = (delta) ->
 
     # zombies will shoot you now!
     if (getRandomInt 1, 95) % 94 == 1
-      massMultiplier = 5
-      bulletGeometry = new THREE.SphereGeometry 0.3
-      bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
-
-      shooterPosition = zombie.position
-      position = controls.getObject().position
-
-      bulletDirection = new THREE.Vector3()
-      bulletDirection.x = (- position.x + shooterPosition.x)/70.0
-      bulletDirection.z = (- position.z + shooterPosition.z)/70.0
-      bulletDirection.y = (- position.y + shooterPosition.y)/70.0
-
-      bulletMesh.position.x = shooterPosition.x - bulletDirection.x * 15
-      bulletMesh.position.y = shooterPosition.y - bulletDirection.y * 15
-      bulletMesh.position.z = shooterPosition.z - bulletDirection.z * 15
-      scene.add bulletMesh
-
-      bulletDirection.multiplyScalar -1
-      bulletDirection.multiplyScalar(150 * massMultiplier)
-      bulletMesh.applyCentralImpulse bulletDirection
-
-      bulletMesh.ttl = 200
-      bullets.push bulletMesh
+      shootBullet zombie.position, controls.getObject().position, null, 10
 
 
   for pair in queue
