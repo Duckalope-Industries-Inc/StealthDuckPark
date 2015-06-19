@@ -189,8 +189,8 @@ lampLight.castShadow = yes
 lampLight.shadowCameraNear = 1
 lampLight.shadowCameraFar = 40
 lampLight.shadowCameraFov = 175
-lampLight.shadowMapWidth = 2048
-lampLight.shadowMapHeight = 2048
+lampLight.shadowMapWidth = 1536
+lampLight.shadowMapHeight = 1536
 #lampLight.shadowCameraVisible = yes  # use for adjusting FOV
 scene.add lampLight
 
