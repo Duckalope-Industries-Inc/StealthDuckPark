@@ -42,6 +42,7 @@ crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping
 flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
 moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
 fenceTexture = THREE.ImageUtils.loadTexture 'res/fence.png'
+muzzleFlashTexture = THREE.ImageUtils.loadTexture 'res/muzzle_flash.png'
 
 # materials
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial
@@ -75,6 +76,12 @@ gunMaterial = new THREE.MeshLambertMaterial
   color: 0x222222
   specular: 0xffffff
 bulletMaterial = gunMaterial
+muzzleFlashMaterial = new THREE.MeshBasicMaterial
+  map: muzzleFlashTexture
+  specular: 0xffffff
+  side: THREE.DoubleSide
+  transparent: yes
+  opacity: 0
 
 # models
 lampModelDeferred = Deferred()
@@ -273,13 +280,41 @@ fenceModelDeferred.promise().then (object) ->
   createFence new THREE.Vector3(0, 0, fenceSize / 2)
   createFence new THREE.Vector3(0, 0, -fenceSize / 2)
 
+gunParentMesh =
+  fire: ->
+    return if not @children
+    muzzleFlashMaterial.opacity = 1
+    @acceleration = 0.05
+    @children[0].position.z = 0.01
+    @children[1].scale.set 1, 1, 1
+  update: (delta) ->
+    @children[0].position.z -= @acceleration * 5
+    if @children[0].position.z >= 0
+      @acceleration = 0
+      @children[0].position.z = 0.01
+    else
+      @acceleration -= delta / 1000
+      return if not muzzleFlashMaterial.opacity
+    scale = @children[1].scale.x - (delta / 1000.0) * 8
+    scale = Math.max 0.01, scale
+    opacity = Math.sin scale * Math.PI / 2
+    opacity = 0 if opacity < 0.05
+    @children[1].scale.set scale, scale, scale
+    @children[1].position.z = 5 + scale
+    muzzleFlashMaterial.opacity = opacity
 gunModelDeferred.promise().then (object) ->
+  _.extend gunParentMesh, object
   object.children[0].material = gunMaterial
-  object.position.x = 5
-  object.position.y = -3
-  object.position.z = -6
+  object.position.set 5, -3, -6
   object.rotation.x = Math.PI * 0.05
   object.rotation.y = Math.PI
+
+  muzzleFlashGeometry = new THREE.PlaneGeometry 4, 4, 1, 1
+  muzzleFlashMesh = new THREE.Mesh muzzleFlashGeometry, muzzleFlashMaterial
+  muzzleFlashMesh.position.set 0.5, 1.5, 6
+  muzzleFlashMesh.rotation.set Math.PI * 0.1, Math.PI * 0.25, Math.PI * 0.05
+  object.add muzzleFlashMesh
+
   camera.add object
 
 moonGeometry = new THREE.PlaneGeometry 30, 30
@@ -323,6 +358,7 @@ document.addEventListener 'mousedown', (event) ->
   controls.getDirection bulletDirection
 
   shootBullet controls.getObject().position, null, bulletDirection, 10
+  gunParentMesh.fire()
 , false
 
 
@@ -572,6 +608,7 @@ animate = ->
   updateZombies delta
   updateCrates()
   updateMoon()
+  gunParentMesh.update delta
   checkCollisions()
 
   scene.simulate delta, 1
