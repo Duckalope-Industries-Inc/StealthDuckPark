@@ -474,28 +474,20 @@ updateZombies = (delta) ->
       bulletGeometry = new THREE.SphereGeometry 0.3
       bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
 
-      bulletDirection = new THREE.Vector3()
-      # controls.getDirection bulletDirection
-
       shooterPosition = zombie.position
       position = controls.getObject().position
 
-
+      bulletDirection = new THREE.Vector3()
       bulletDirection.x = (- position.x + shooterPosition.x)/70.0
       bulletDirection.z = (- position.z + shooterPosition.z)/70.0
       bulletDirection.y = (- position.y + shooterPosition.y)/70.0
 
-      # console.log(bulletDirection)
-
-      bulletMesh.position.x = shooterPosition.x - bulletDirection.x*15
-      bulletMesh.position.y = shooterPosition.y - bulletDirection.y*15
-      bulletMesh.position.z = shooterPosition.z - bulletDirection.z*15
+      bulletMesh.position.x = shooterPosition.x - bulletDirection.x * 15
+      bulletMesh.position.y = shooterPosition.y - bulletDirection.y * 15
+      bulletMesh.position.z = shooterPosition.z - bulletDirection.z * 15
       scene.add bulletMesh
 
-      bulletDirection.x = (-1)*bulletDirection.x
-      bulletDirection.z = (-1)*bulletDirection.z
-      bulletDirection.y = (-1)*bulletDirection.y
-
+      bulletDirection.multiplyScalar -1
       bulletDirection.multiplyScalar(150 * massMultiplier)
       bulletMesh.applyCentralImpulse bulletDirection
 
