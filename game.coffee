@@ -43,12 +43,25 @@ flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
 moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
 fenceTexture = THREE.ImageUtils.loadTexture 'res/fence.png'
 muzzleFlashTexture = THREE.ImageUtils.loadTexture 'res/muzzle_flash.png'
+turretIconTexture = THREE.ImageUtils.loadTexture 'res/turret_icon.png'
+laserTexture = THREE.ImageUtils.loadTexture 'res/laser.png'
 
 # materials
+transparentMaterial = new THREE.MeshLambertMaterial
+  color: 0xffffff
+  transparent: yes
+  opacity: 0
+transparentFrictionMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
+  color: 0xffffff
+  transparent: yes
+  opacity: 0
+), 1, 0
+
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial(
   map: zombieTexture
   transparent: yes
   shading: THREE.FlatShading
+  side: THREE.DoubleSide
 ), 0, 0
 grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
   map: grassTexture
@@ -64,10 +77,6 @@ bulletMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
   specular: 0xffffff
 ), 0, 1
 
-transparentMaterial = new THREE.MeshLambertMaterial
-  color: 0xffffff
-  transparent: yes
-  opacity: 0
 fenceMaterial = new THREE.MeshLambertMaterial
   map: fenceTexture
   specular: 0xffffff
@@ -79,12 +88,24 @@ moonMaterial.depthWrite = no
 gunMaterial = new THREE.MeshLambertMaterial
   color: 0x222222
   specular: 0xffffff
-muzzleFlashMaterial = new THREE.MeshBasicMaterial
+muzzleFlashMaterialFactory = -> new THREE.MeshBasicMaterial
   map: muzzleFlashTexture
   specular: 0xffffff
   side: THREE.DoubleSide
   transparent: yes
   opacity: 0
+turretMaterial = new THREE.MeshLambertMaterial
+  color: 0x666666
+  specular: 0xffffff
+turretIconMaterial = new THREE.MeshBasicMaterial
+  map: turretIconTexture
+  side: THREE.DoubleSide
+  transparent: yes
+laserMaterial = new THREE.MeshBasicMaterial
+  map: laserTexture
+  side: THREE.DoubleSide
+  transparent: yes
+laserMaterial.blending = THREE.AdditiveBlending
 
 # models
 lampModelDeferred = Deferred()
@@ -99,6 +120,14 @@ gunModelDeferred = Deferred()
 gunLoader = new THREE.OBJLoader()
 gunLoader.load 'res/ingram.obj', (geometry) -> gunModelDeferred.resolve geometry
 
+turretModelDeferred = Deferred()
+turretLoader = new THREE.OBJLoader()
+turretLoader.load 'res/portalturret.obj', (geometry) -> turretModelDeferred.resolve geometry
+
+parachuteModelDeferred = Deferred()
+parachuteLoader = new THREE.OBJMTLLoader()
+parachuteLoader.load 'res/Parachute.obj', 'res/Parachute.mtl', (geometry) -> parachuteModelDeferred.resolve geometry
+
 # DOM
 blocker = document.getElementById 'blocker'
 instructions = document.getElementById 'instructions'
@@ -112,6 +141,7 @@ crates = []
 bullets = []
 zombies = []
 fences = []
+turrets = []
 
 
 
@@ -287,10 +317,10 @@ fenceModelDeferred.promise().then (object) ->
 gunParentMesh =
   fire: ->
     return if not @children
-    muzzleFlashMaterial.opacity = 1
     @acceleration = 0.05
     @children[0].position.z = 0.01
     @children[1].scale.set 1, 1, 1
+    @children[1].material.opacity = 1
   update: (delta) ->
     @children[0].position.z -= @acceleration * 5
     if @children[0].position.z >= 0
@@ -298,14 +328,14 @@ gunParentMesh =
       @children[0].position.z = 0.01
     else
       @acceleration -= delta / 1000
-      return if not muzzleFlashMaterial.opacity
+      return if not @children[1].material.opacity
     scale = @children[1].scale.x - (delta / 1000.0) * 8
     scale = Math.max 0.01, scale
     opacity = Math.sin scale * Math.PI / 2
     opacity = 0 if opacity < 0.05
     @children[1].scale.set scale, scale, scale
     @children[1].position.z = 5 + scale
-    muzzleFlashMaterial.opacity = opacity
+    @children[1].material.opacity = opacity
 gunModelDeferred.promise().then (object) ->
   _.extend gunParentMesh, object
   object.children[0].material = gunMaterial
@@ -314,15 +344,32 @@ gunModelDeferred.promise().then (object) ->
   object.rotation.y = Math.PI
 
   muzzleFlashGeometry = new THREE.PlaneGeometry 4, 4, 1, 1
-  muzzleFlashMesh = new THREE.Mesh muzzleFlashGeometry, muzzleFlashMaterial
+  muzzleFlashMesh = new THREE.Mesh muzzleFlashGeometry, muzzleFlashMaterialFactory()
   muzzleFlashMesh.position.set 0.5, 1.5, 6
   muzzleFlashMesh.rotation.set Math.PI * 0.1, Math.PI * 0.25, Math.PI * 0.05
   object.add muzzleFlashMesh
 
   camera.add object
+  
+turretTemplate = null
+parachuteTemplate = null
+Deferred.all([turretModelDeferred.promise(), parachuteModelDeferred.promise()]).then (objects) ->
+  [turretObject, parachuteObject] = objects
+
+  turretTemplate = turretObject.children[0]
+  turretTemplate.material = turretMaterial
+  turretTemplate.scale.set 0.2, 0.2, 0.2
+  turretTemplate.position.x -= 1
+  turretTemplate.position.y -= 5.8
+  turretTemplate.rotation.y = Math.PI / 2
+
+  parachuteTemplate = parachuteObject
+  parachuteTemplate.scale.set 3, 2, 3
+  parachuteTemplate.position.set 1, 5, 0
+# turrets are added during rendering
 
 moonGeometry = new THREE.PlaneGeometry 30, 30
-moonMesh = new Physijs.BoxMesh moonGeometry, moonMaterial, 0
+moonMesh = new THREE.Mesh moonGeometry, moonMaterial
 moonMeshDelta = new THREE.Vector3 -60, 120, -180
 scene.add moonMesh
 
@@ -361,16 +408,16 @@ document.addEventListener 'mousedown', (event) ->
   bulletDirection = new THREE.Vector3()
   controls.getDirection bulletDirection
 
-  shootBullet controls.getObject().position, null, bulletDirection, 10
+  shootBullet controls.getObject().position, null, bulletDirection, 5
   gunParentMesh.fire()
 , false
 
 
 
 # raycasting
-raycastDownwards = (from) ->
+raycastDownwards = (from, halfHeight) ->
   raycasterFeet.ray.origin.copy from
-  raycasterFeet.ray.origin.y -= 10
+  raycasterFeet.ray.origin.y -= halfHeight
   intersections = raycasterFeet.intersectObjects crates
   if intersections.length
     dist = intersections[0].distance
@@ -388,8 +435,6 @@ handleDirectedCollision = (caster, callback) ->
 
 
 # zombies
-max_health = 20
-initial_health = 15
 spawnZombie = ->
   zombieGeometry = new THREE.BoxGeometry 10, 10, 10
   zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
@@ -400,7 +445,7 @@ spawnZombie = ->
     x = (randomInt(20) - 10) * 20
     z = (randomInt(20) - 10) * 20
     vec = new THREE.Vector3 x, 25, z
-    continue if raycastDownwards vec
+    continue if raycastDownwards vec, 5
     vec.sub controls.getObject().position
     vec.y = 0
     break if vec.length() > 100
@@ -412,13 +457,21 @@ spawnZombie = ->
 
   now = Date.now()
 
-  zombieMesh.setHealth = (value, regenOffset = 0) ->
-    @health = Math.max value, 0
-    healthScaled = @health / max_health
-    @material.color.setRGB 1, healthScaled, healthScaled
-    @nextRegen = Date.now() + regenOffset
-  zombieMesh.nextRegen = now
-  zombieMesh.setHealth initial_health
+  zombieMesh.health =
+    value: 1
+    nextRegen: Date.now() + 2000
+    set: (value, regenOffset = 0) ->
+      @value = Math.max value, 0
+      zombieMesh.material.color.setRGB 1, @value, @value
+    hit: (v) ->
+      @set @value - v
+      @nextRegen = Date.now() + 2000
+    regen: (v) ->
+      @set @value + v
+      @nextRegen = Date.now() + 300
+    update: ->
+      if (@value < 1) and (Date.now() > @nextRegen)
+        @regen 0.1
 
   zombieMesh.anger =
     lastPosition: new THREE.Vector3
@@ -439,15 +492,14 @@ spawnZombie = ->
   zombies.push zombieMesh
   scene.add zombieMesh
 
-timeTillRegen = 2000
-regenStep = 300
-zombieWasHit = (zombie, bullet) ->
-  zombie.setHealth(zombie.health - 5, timeTillRegen)
-  if !zombie.health
+zombieHit = (zombie, bullet, damage) ->
+  zombie.health.hit damage
+  if !zombie.health.value
     zombies = _.without zombies, zombie
     scene.remove zombie
-  bullets = bullets.filter (item) -> item isnt bullet
-  scene.remove bullet
+  if bullet
+    bullets = bullets.filter (item) -> item isnt bullet
+    scene.remove bullet
 
 
 
@@ -466,7 +518,7 @@ addCrate = (pos) ->
 # bullets
 shootBullet = (from, atPosition=null, inDirection=null, initialDistance=1) ->
   massMultiplier = 5
-  bulletGeometry = new THREE.SphereGeometry 0.3
+  bulletGeometry = new THREE.SphereGeometry 0.2
   bulletMesh = new Physijs.SphereMesh bulletGeometry, bulletMaterial, massMultiplier
 
   if atPosition
@@ -493,6 +545,100 @@ shootBullet = (from, atPosition=null, inDirection=null, initialDistance=1) ->
 
 
 
+# turrets
+spawnTurret = (position, rotation) ->
+  turretGeometry = new THREE.BoxGeometry 4, 12, 5.5
+  turretMesh = new Physijs.BoxMesh turretGeometry, transparentFrictionMaterial, 10
+  turretMesh.position.copy position
+  turretMesh.rotation.y = rotation
+  turretMesh.add turretTemplate.clone()
+
+  turretBaseGeometry = new THREE.BoxGeometry 10, 2, 5.5
+  turretBaseMesh = new Physijs.BoxMesh turretBaseGeometry, transparentFrictionMaterial, 40
+  turretBaseMesh.position.set -1, -5, 0
+  turretMesh.add turretBaseMesh
+
+  parachuteMesh = parachuteTemplate.clone()
+  turretMesh.add parachuteMesh
+  turretMesh.parachute = parachuteMesh
+  turretMesh.static =
+    y: no
+    timestamp: no
+
+  turretMesh.knocked = no
+
+  turretIconGeometry = new THREE.PlaneGeometry 10, 20, 1, 1
+  turretIconMesh = new THREE.Mesh turretIconGeometry, turretIconMaterial
+  turretMesh.icon = turretIconMesh
+
+  turretLaserGeometry1 = new THREE.PlaneGeometry 1, 0.3, 1, 1
+  turretLaserGeometry2 = new THREE.PlaneGeometry 1, 0.3, 1, 1
+  turretLaserMesh1 = new THREE.Mesh turretLaserGeometry1, laserMaterial
+  turretLaserMesh2 = new THREE.Mesh turretLaserGeometry2, laserMaterial
+  turretLaserMesh1.add turretLaserMesh2
+  turretLaserMesh2.rotation.x = Math.PI / 2
+  turretLaserMesh1.position.x = 0.5
+
+  turretLaserPivot = new THREE.Object3D
+  turretLaserPivot.add turretLaserMesh1
+  turretLaserPivot.position.y = 1.5
+  turretMesh.laser =
+    enabled: no
+    mesh: turretLaserPivot
+    fireTimestamp: 0
+    lastIntensity: 1
+    fired: no
+    enable: ->
+      @enabled = yes
+      turretMesh.add @mesh
+    disable: ->
+      @wasEnabled = @enabled
+      @enabled = no
+      turretMesh.remove @mesh
+    setLength: (l) ->
+      @mesh.scale.x = l
+    canFire: -> Date.now() - @fireTimestamp > 500
+    fire: (callback) ->
+      @fireCallback = callback
+      @fireTimestamp = Date.now()
+      @fired = no
+    animate: ->
+      progress = (Date.now() - @fireTimestamp) / 300.0 * Math.PI * 2
+      if progress > Math.PI * 2
+        @setIntensity 1
+        return
+      intensity = 1 + Math.sin progress
+      if (intensity < @lastIntensity) and not @fired
+        @fired = yes
+        @fireCallback()
+      @setIntensity intensity
+    setIntensity: (v) ->
+      @mesh.scale.y = v
+      @mesh.scale.z = v
+      @lastIntensity = v
+
+  scene.add turretMesh
+  turrets.push turretMesh
+  turretMesh
+
+getTilt = (object) ->
+  deyaw = new THREE.Vector3
+  deyaw.copy object.rotation
+  deyaw.applyEuler new THREE.Euler 0, 0, 0, 'XYZ'
+  deroll = new THREE.Vector3
+  deroll.copy object.rotation
+  deroll.applyEuler new THREE.Euler 0, 0, 0, 'XZY'
+  x = Math.abs deyaw.x
+  z = Math.abs deroll.z
+  x: Math.min x, Math.PI - x
+  z: Math.min z, Math.PI - z
+
+turretIsKnocked = (turret) ->
+  tilt = getTilt turret
+  (tilt.x > Math.PI * 0.45) || (tilt.z > Math.PI * 0.3)
+
+
+
 # frame methods
 checkCollisions = ->
   controls.setOnObject no
@@ -509,7 +655,7 @@ checkCollisions = ->
       vec.copy controls.getObject().position
       vec.x += d[0]
       vec.z += d[1]
-      if raycastDownwards vec
+      if raycastDownwards vec, 10
         controls.setOnObject yes
         break
 
@@ -549,15 +695,13 @@ updateZombies = (delta) ->
       z: (controls.getObject().position.z - zombie.position.z) / factor
     zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
 
-    if (zombie.health < max_health) and (zombie.nextRegen <= now)
-      zombie.setHealth(zombie.health + 1, regenStep)
-
     posDelta = distance zombie.position, zombie.anger.lastPosition
     if posDelta / delta > 0.4
       zombie.anger.clear()
     else
       if now - zombie.anger.irritatedSince > 3000
         zombie.anger.goMad()
+    zombie.health.update()
 
     for bullet in bullets
       if (distance zombie.position, bullet.position) < 8
@@ -565,17 +709,13 @@ updateZombies = (delta) ->
           zombie: zombie
           bullet: bullet
 
-    # zombies will shoot you now!
-    if (getRandomInt 1, 95) % 94 == 1
-      shootBullet zombie.position, controls.getObject().position, null, 10
-
   for pair in queue
-    zombieWasHit pair.zombie, pair.bullet
+    zombieHit pair.zombie, pair.bullet, 0.25
 
 times.crateSpawned = Date.now()
 arenaSize = 400
 updateCrates = ->
-  if crates.length < 100
+  if crates.length < 30
     now = Date.now()
     if now - times.crateSpawned > 50  # do not spawn too frequently
       x = randomInt arenaSize
@@ -591,6 +731,87 @@ updateCrates = ->
       crate.rotateAroundWorldAxis THREE.axis.z, pitch.z
       crate.applyCentralImpulse new THREE.Vector3 0, -20000, 0
       times.crateSpawned = now
+
+times.turretSpawned = Date.now()
+updateTurrets = (delta) ->
+  now = Date.now()
+  if turrets.length < 5
+    if now - times.turretSpawned > 3000  # do not spawn too frequently
+      x = randomInt arenaSize
+      z = randomInt arenaSize
+      spawnTurret new THREE.Vector3(x - arenaSize / 2, 100, z - arenaSize / 2), randomFloat(0, Math.PI * 2)
+      times.turretSpawned = now
+
+  queue = []
+  for turret in turrets
+    if turret.knocked
+      timeout = 2000
+      fadeTime = 300
+      if not turretIsKnocked turret
+        turret.scale.set 1, 1, 1
+        turret.knocked = no
+        turret.laser.enable() if turret.laser.wasEnabled
+      else if now - turret.knocked > timeout
+        scale = Math.max(0.01, Math.cos (now - turret.knocked - timeout) / fadeTime * Math.PI / 2)
+        turret.scale.set scale, scale, scale
+        turret.icon.scale.set scale, scale, scale
+        if now - turret.knocked > timeout + fadeTime
+          queue.push turret
+    else if turretIsKnocked turret
+      turret.knocked = now
+      turret.laser.disable()
+
+    if not turret.static.timestamp
+      if turret.static.y == turret.position.y
+        turret.static.timestamp = now
+      else
+        turret.static.y = turret.position.y
+    else
+      if turret.static.y != turret.position.y
+        turret.static.y = turret.position.y
+        turret.static.timestamp = no
+      else if now - turret.static.timestamp > 1000
+        turret.static.removeParachute = yes
+
+    if turret.parachute and not (turret in queue)
+      if (not raycastDownwards(turret.position, 20)) and (turret.position.y > 20) and not turret.static.removeParachute
+        velocity = turret.getLinearVelocity()
+        velocity.y = -15
+        turret.setLinearVelocity velocity
+      else
+        turret.remove turret.parachute
+        turret.parachute = null
+        scene.add turret.icon
+        turret.icon.scale.set 0.01, 0.01, 0.01
+        turret.laser.enable()
+
+  for item in queue
+    scene.remove item
+    scene.remove item.icon
+    turrets = _.without turrets, item
+
+  for turret in turrets
+    turret.icon.position.copy turret.position
+    shift = Math.sin(now / 300.0) * 3
+    turret.icon.position.y = 100 + shift
+    directionVector = deltaVector controls.getObject().position, turret.position
+    turret.icon.rotation.y = Math.atan2 directionVector.x, directionVector.z
+    if turret.icon.scale.x < 1
+      scale = Math.min 1, turret.icon.scale.x + delta / 300.0
+      turret.icon.scale.set scale, scale, scale
+
+    if not turret.parachute
+      direction = new THREE.Vector3 1, 0, 0
+      for axis in ['z', 'y', 'x']
+        direction.applyAxisAngle THREE.axis[axis], turret.rotation[axis]
+      raycaster = new THREE.Raycaster turret.position, direction
+      intersections = raycaster.intersectObjects _.union crates, zombies, fences, turrets
+      if intersections.length
+        turret.laser.setLength intersections[0].distance
+        if turret.laser.canFire() and (intersections[0].object in zombies)
+          zombie = intersections[0].object
+          turret.laser.fire -> zombieHit zombie, null, 0.2
+      turret.laser.animate()
 
 updateMoon = ->
   moonMesh.position.copy controls.getObject().position
@@ -609,6 +830,7 @@ animate = ->
   times.frame += delta
 
   updateBullets()
+  updateTurrets delta
   updateZombies delta
   updateCrates()
   updateMoon()
