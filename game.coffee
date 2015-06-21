@@ -492,7 +492,7 @@ spawnZombie = ->
   zombieMesh.victim =
     target: null
     attack: ->
-      if not @target
+      if (not @target) or not (@target in turrets)
         @target = controls.getObject()
       zombieMesh.lookAt @target.position
       factor = 10
@@ -505,18 +505,20 @@ spawnZombie = ->
       if (vector.length() < 15) and @target.applyCentralImpulse
         vector.normalize()
         vector.y += 5
-        vector.multiplyScalar 60
+        vector.multiplyScalar 200
         @target.position.y += 0.1
         @target.applyCentralImpulse vector
-    considerTarget: (potentialTarget) ->
+    considerTarget: (potentialTarget, inviteOthers = 2) ->
       return if potentialTarget is @target
       oldDistance = distance zombieMesh.position, @target.position
       newDistance = distance zombieMesh.position, potentialTarget.position
       if (oldDistance > 5) and (newDistance < oldDistance - 3)
         @target = potentialTarget
-      for zombie in _.without zombies, zombieMesh
-        if distance(zombie.position, zombieMesh.position) < 45
-          zombie.victim.considerTarget @target
+      if inviteOthers
+        for zombie in _.without zombies, zombieMesh
+          if distance(zombie.position, zombieMesh.position) < 45
+            zombie.victim.considerTarget @target, inviteOthers - 1
+            break
 
   zombies.push zombieMesh
   scene.add zombieMesh
@@ -665,8 +667,10 @@ getTilt = (object) ->
   z: Math.min z, Math.PI - z
 
 turretIsKnocked = (turret) ->
+  ax = Math.abs turret.position.x
+  az = Math.abs turret.position.z
   tilt = getTilt turret
-  (tilt.x > Math.PI * 0.45) || (tilt.z > Math.PI * 0.3)
+  (tilt.x > Math.PI * 0.45) || (tilt.z > Math.PI * 0.3) || (Math.max(ax, az) > fenceSize / 2)
 
 
 
