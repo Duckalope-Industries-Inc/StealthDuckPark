@@ -652,7 +652,7 @@ shootBullet = (from, atPosition=null, inDirection=null, initialDistance=1) ->
   direction.multiplyScalar(150 * massMultiplier)
   bulletMesh.applyCentralImpulse direction
 
-  bulletMesh.ttl = 200
+  bulletMesh.shotAt = Date.now()
   bullets.push bulletMesh
 
 
@@ -782,10 +782,10 @@ checkCollisions = ->
   handleDirectedCollision raycasterWest, -> controls.setWestToObject yes
 
 updateBullets = ->
+  now = Date.now()
   newBullets = bullets
   for bullet in bullets
-    bullet.ttl -= 1
-    if bullet.ttl < 0
+    if bullet.shotAt < now - 3000
       scene.remove bullet
       newBullets = _.without newBullets, bullet
   bullets = newBullets
