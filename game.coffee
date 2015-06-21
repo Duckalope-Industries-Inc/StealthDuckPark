@@ -614,6 +614,7 @@ spawnTurret = (position, rotation) ->
   turretLaserPivot = new THREE.Object3D
   turretLaserPivot.add turretLaserMesh1
   turretLaserPivot.position.y = 1.5
+
   turretMesh.laser =
     enabled: no
     mesh: turretLaserPivot
