@@ -488,12 +488,42 @@ spawnZombie = ->
           vec.y = 50
           vec.multiplyScalar 300
           crate.applyCentralImpulse vec
+          
+  zombieMesh.victim =
+    target: null
+    attack: ->
+      if not @target
+        @target = controls.getObject()
+      zombieMesh.lookAt @target.position
+      factor = 10
+      dir =
+        x: (@target.position.x - zombieMesh.position.x) / factor
+        y: 0
+        z: (@target.position.z - zombieMesh.position.z) / factor
+      zombieMesh.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
+      vector = deltaVector zombieMesh.position, @target.position
+      if (vector.length() < 15) and @target.applyCentralImpulse
+        vector.normalize()
+        vector.y += 5
+        vector.multiplyScalar 60
+        @target.position.y += 0.1
+        @target.applyCentralImpulse vector
+    considerTarget: (potentialTarget) ->
+      return if potentialTarget is @target
+      oldDistance = distance zombieMesh.position, @target.position
+      newDistance = distance zombieMesh.position, potentialTarget.position
+      if (oldDistance > 5) and (newDistance < oldDistance - 3)
+        @target = potentialTarget
+      for zombie in _.without zombies, zombieMesh
+        if distance(zombie.position, zombieMesh.position) < 45
+          zombie.victim.considerTarget @target
 
   zombies.push zombieMesh
   scene.add zombieMesh
 
-zombieHit = (zombie, bullet, damage) ->
+zombieHit = (shooter, zombie, bullet, damage) ->
   zombie.health.hit damage
+  zombie.victim.considerTarget shooter
   if !zombie.health.value
     zombies = _.without zombies, zombie
     scene.remove zombie
@@ -613,6 +643,7 @@ spawnTurret = (position, rotation) ->
         @fireCallback()
       @setIntensity intensity
     setIntensity: (v) ->
+      v = Math.max 0.1, v
       @mesh.scale.y = v
       @mesh.scale.z = v
       @lastIntensity = v
@@ -687,13 +718,7 @@ updateZombies = (delta) ->
   queue = []
   now = Date.now()
   for zombie in zombies
-    zombie.lookAt controls.getObject().position
-    factor = 10
-    dir =
-      x: (controls.getObject().position.x - zombie.position.x) / factor
-      y: 0
-      z: (controls.getObject().position.z - zombie.position.z) / factor
-    zombie.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
+    zombie.victim.attack()
 
     posDelta = distance zombie.position, zombie.anger.lastPosition
     if posDelta / delta > 0.4
@@ -710,7 +735,7 @@ updateZombies = (delta) ->
           bullet: bullet
 
   for pair in queue
-    zombieHit pair.zombie, pair.bullet, 0.25
+    zombieHit controls.getObject(), pair.zombie, pair.bullet, 0.25
 
 times.crateSpawned = Date.now()
 arenaSize = 400
@@ -735,7 +760,7 @@ updateCrates = ->
 times.turretSpawned = Date.now()
 updateTurrets = (delta) ->
   now = Date.now()
-  if turrets.length < 5
+  if turrets.length < 6
     if now - times.turretSpawned > 3000  # do not spawn too frequently
       x = randomInt arenaSize
       z = randomInt arenaSize
@@ -810,7 +835,8 @@ updateTurrets = (delta) ->
         turret.laser.setLength intersections[0].distance
         if turret.laser.canFire() and (intersections[0].object in zombies)
           zombie = intersections[0].object
-          turret.laser.fire -> zombieHit zombie, null, 0.2
+          firingTurret = turret
+          turret.laser.fire -> zombieHit firingTurret, zombie, null, 0.2
       turret.laser.animate()
 
 updateMoon = ->
