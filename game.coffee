@@ -46,6 +46,16 @@ muzzleFlashTexture = THREE.ImageUtils.loadTexture 'res/muzzle_flash.png'
 turretIconTexture = THREE.ImageUtils.loadTexture 'res/turret_icon.png'
 laserTexture = THREE.ImageUtils.loadTexture 'res/laser.png'
 
+loadMultitexture = (prefix, names...) ->
+  for name in names
+    THREE.ImageUtils.loadTexture "#{prefix}/#{name}.png"
+zombieHeadTextures = loadMultitexture 'res/zombie/head', 'front', 'back', 'top', 'bottom', 'left', 'right'
+zombieBodyTextures = loadMultitexture 'res/zombie/body', 'front', 'back', 'top', 'bottom', 'left', 'right'
+zombieLLegTextures = loadMultitexture 'res/zombie/leg', 'front', 'back', 'top', 'bottom', 'outside', 'inside'
+zombieRLegTextures = loadMultitexture 'res/zombie/leg', 'front', 'back', 'top', 'bottom', 'inside', 'outside'
+zombieLArmTextures = loadMultitexture 'res/zombie/arm', 'front', 'back', 'top', 'bottom', 'outside', 'inside'
+zombieRArmTextures = loadMultitexture 'res/zombie/arm', 'front', 'back', 'top', 'bottom', 'inside', 'outside'
+
 # materials
 transparentMaterial = new THREE.MeshLambertMaterial
   color: 0xffffff
@@ -55,7 +65,7 @@ transparentFrictionMaterial = Physijs.createMaterial new THREE.MeshLambertMateri
   color: 0xffffff
   transparent: yes
   opacity: 0
-), 1, 0
+), 0, 0
 
 zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial(
   map: zombieTexture
@@ -107,10 +117,24 @@ laserMaterial = new THREE.MeshBasicMaterial
   transparent: yes
 laserMaterial.blending = THREE.AdditiveBlending
 
+createMultimaterial = (textures, proto, options) ->
+  options = {} if not options
+  materials = for texture in textures
+    texOpts = _.clone options
+    texOpts.map = texture
+    material = new proto texOpts
+  new THREE.MeshFaceMaterial materials
+zombieHeadMaterial = createMultimaterial zombieHeadTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieBodyMaterial = createMultimaterial zombieBodyTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieLLegMaterial = createMultimaterial zombieLLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieRLegMaterial = createMultimaterial zombieRLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieLArmMaterial = createMultimaterial zombieLArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieRArmMaterial = createMultimaterial zombieRArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+
 # models
 lampModelDeferred = Deferred()
 lampLoader = new THREE.OBJMTLLoader()
-lampLoader.load 'res/StreetLamp.obj', 'res/StreetLamp.mtl', (mesh) -> lampModelDeferred.resolve mesh
+lampLoader.load 'res/StreetLamp.obj', 'res/StreetLamp.mtl', (object) -> lampModelDeferred.resolve object
 
 fenceModelDeferred = Deferred()
 fenceLoader = new THREE.OBJLoader()
@@ -126,7 +150,7 @@ turretLoader.load 'res/portalturret.obj', (geometry) -> turretModelDeferred.reso
 
 parachuteModelDeferred = Deferred()
 parachuteLoader = new THREE.OBJMTLLoader()
-parachuteLoader.load 'res/Parachute.obj', 'res/Parachute.mtl', (geometry) -> parachuteModelDeferred.resolve geometry
+parachuteLoader.load 'res/Parachute.obj', 'res/Parachute.mtl', (object) -> parachuteModelDeferred.resolve object
 
 # DOM
 blocker = document.getElementById 'blocker'
@@ -212,7 +236,8 @@ camera = new THREE.PerspectiveCamera 75, window.innerWidth / window.innerHeight,
 
 scene = new Physijs.Scene()
 scene.fog = new THREE.Fog 0x000000, 0, 750
-scene.setGravity new THREE.Vector3 0, -100, 0
+gravity = new THREE.Vector3 0, -100, 0
+scene.setGravity gravity
 
 controls = new THREE.PointerLockControls camera
 scene.add controls.getObject()
@@ -435,10 +460,66 @@ handleDirectedCollision = (caster, callback) ->
 
 
 # zombies
+zombieMeshFactory = (scene_) ->
+  zombieGeometry = new THREE.BoxGeometry 14, 32, 16
+  zombie = new Physijs.BoxMesh zombieGeometry, transparentFrictionMaterial, 40
+  scale = 0.5
+  zombie.scale.set scale, scale, scale
+  scene_.add zombie
+
+  zombieBodyGeometry = new THREE.BoxGeometry 4, 12, 8
+  zombieBodyMesh = new THREE.Mesh zombieBodyGeometry, zombieBodyMaterial
+  zombieBodyMesh.position.set -3, 2, 0
+  zombie.body = zombieBodyMesh
+  zombie.add zombieBodyMesh
+
+  zombieHeadGeometry = new THREE.BoxGeometry 8, 8, 8
+  zombieHeadMesh = new THREE.Mesh zombieHeadGeometry, zombieHeadMaterial
+  zombieHeadMesh.position.y = 10
+  zombie.head = zombieHeadMesh
+  zombie.body.add zombieHeadMesh
+
+  zombieLimbFactory = (material, part, centerShift = 0) ->
+    zombieLimbGeometry = new THREE.BoxGeometry 4, 12, 4
+    zombieLimbGeometry.applyMatrix new THREE.Matrix4().makeTranslation 0, -6 + centerShift, 0
+    zombieLimbMesh = new THREE.Mesh zombieLimbGeometry, material
+    zombie[part] = zombieLimbMesh
+    zombie.body.add zombieLimbMesh
+    zombieLimbMesh
+  zombieLimbFactory(zombieLLegMaterial, 'leftleg').position.set 0, -6, -2
+  zombieLimbFactory(zombieRLegMaterial, 'rightleg').position.set 0, -6, 2
+  zombieLimbFactory(zombieLArmMaterial, 'leftarm', 2).position.set 0, 4, -6
+  zombieLimbFactory(zombieRArmMaterial, 'rightarm', 2).position.set 0, 4, 6
+
+  zombie.legs =
+    modulo: -1
+    animate: ->
+      @modulo = (@modulo + 1) % 4
+      return if @modulo
+      delta = Date.now() / 1600 * Math.PI * 2
+      roll = 0.3 * Math.sin delta
+      zombie.leftleg.rotation.z = roll
+      zombie.rightleg.rotation.z = -roll
+
+  zombie.lookAt = (->
+    modulo = -1
+    (point) ->
+      modulo = (modulo + 1) % 4
+      return if modulo
+      vector = deltaVector @position, point
+      @rotation.set 0, Math.atan2(-vector.z, vector.x), 0
+      @__dirtyRotation = yes
+      hDistance = Math.sqrt Math.pow(vector.x, 2) + Math.pow(vector.z, 2)
+      basicRotation = Math.tanh vector.y / hDistance
+      @head.rotation.z = basicRotation
+      @leftarm.rotation.z = basicRotation + Math.PI / 2
+      @rightarm.rotation.z = basicRotation + Math.PI / 2
+    )()
+
+  zombie
+
 spawnZombie = ->
-  zombieGeometry = new THREE.BoxGeometry 10, 10, 10
-  zombieMesh = new Physijs.BoxMesh zombieGeometry, zombieMaterialFactory(), 10
-  zombieMesh.material.size = THREE.DoubleSide
+  zombieMesh = zombieMeshFactory scene
   zombieMesh.castShadow = yes
 
   loop
@@ -450,9 +531,7 @@ spawnZombie = ->
     vec.y = 0
     break if vec.length() > 100
 
-  zombieMesh.position.x = x
-  zombieMesh.position.y = 5
-  zombieMesh.position.z = z
+  zombieMesh.position.set x, 8.1, z
   zombieMesh.lookAt controls.getObject().position
 
   now = Date.now()
@@ -495,12 +574,13 @@ spawnZombie = ->
       if (not @target) or not (@target in turrets)
         @target = controls.getObject()
       zombieMesh.lookAt @target.position
-      factor = 10
-      dir =
-        x: (@target.position.x - zombieMesh.position.x) / factor
-        y: 0
-        z: (@target.position.z - zombieMesh.position.z) / factor
-      zombieMesh.setLinearVelocity(new THREE.Vector3 dir.x, dir.y, dir.z)
+      zombieMesh.position.y = 8.1
+      zombieMesh.__dirtyPosition = yes
+      dir = deltaVector zombieMesh.position, @target.position
+      if dir.length() < 10
+        dir.multiplyScalar 10 / dir.length()
+      dir.divideScalar 10
+      zombieMesh.setLinearVelocity(new THREE.Vector3 dir.x, 0, dir.z)
       vector = deltaVector zombieMesh.position, @target.position
       if (vector.length() < 15) and @target.applyCentralImpulse
         vector.normalize()
@@ -521,7 +601,7 @@ spawnZombie = ->
             break
 
   zombies.push zombieMesh
-  scene.add zombieMesh
+  zombieMesh
 
 zombieHit = (shooter, zombie, bullet, damage) ->
   zombie.health.hit damage
@@ -590,6 +670,8 @@ spawnTurret = (position, rotation) ->
   turretBaseMesh.position.set -1, -5, 0
   turretMesh.add turretBaseMesh
 
+  scene.add turretMesh
+
   parachuteMesh = parachuteTemplate.clone()
   turretMesh.add parachuteMesh
   turretMesh.parachute = parachuteMesh
@@ -651,7 +733,6 @@ spawnTurret = (position, rotation) ->
       @mesh.scale.z = v
       @lastIntensity = v
 
-  scene.add turretMesh
   turrets.push turretMesh
   turretMesh
 
@@ -723,6 +804,7 @@ updateZombies = (delta) ->
   queue = []
   now = Date.now()
   for zombie in zombies
+    zombie.legs.animate()
     zombie.victim.attack()
 
     posDelta = distance zombie.position, zombie.anger.lastPosition
@@ -856,9 +938,10 @@ animate = ->
   requestAnimationFrame animate
   return if not controls.enabled
 
-  delta = Date.now() - times.frame
+  now = Date.now()
+  delta = now - times.frame
+  times.frame = now
   controls.update delta
-  times.frame += delta
 
   updateBullets()
   updateTurrets delta
