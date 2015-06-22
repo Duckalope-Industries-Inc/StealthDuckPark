@@ -577,6 +577,7 @@ zombieMeshFactory = (scene_) ->
 
   zombie
 
+zombieSpeedFactor = 5
 spawnZombie = ->
   zombieMesh = zombieMeshFactory scene
   zombieMesh.castShadow = yes
@@ -654,7 +655,7 @@ spawnZombie = ->
         zombieMesh.victim.bite()
       else if dir.length() < threshold
         dir.multiplyScalar threshold / dir.length()
-      dir.divideScalar 10
+      dir.divideScalar 10 / zombieSpeedFactor
       zombieMesh.setLinearVelocity(new THREE.Vector3 dir.x, 0, dir.z)
       vector = deltaVector zombieMesh.position, @target.position
       if (vector.length() < 15) and @target.applyCentralImpulse
@@ -939,7 +940,7 @@ updateZombies = (delta) ->
     zombie.victim.walkTo()
 
     posDelta = distance zombie.position, zombie.anger.lastPosition
-    if posDelta / delta > 0.4
+    if posDelta / delta > 0.4 * zombieSpeedFactor
       zombie.anger.clear()
     else
       if now - zombie.anger.irritatedSince > 3000
