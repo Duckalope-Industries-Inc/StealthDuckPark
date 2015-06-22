@@ -7,11 +7,19 @@ randomFloat = (min, max) -> (Math.random() * (min + max)) - min
 stats = new Stats()
 stats.setMode(0)  # 0: fps, 1: ms
 
-stats.domElement.style.position = 'absolute'
-stats.domElement.style.left = '0px'
-stats.domElement.style.top = '0px'
-
 document.getElementById('Stats-output').appendChild stats.domElement
+
+scoreFactory = (id) ->
+  value: 0
+  element: document.getElementById id
+  increase: ->
+    @value += 1
+    @element.textContent = @value
+    
+gunScore = scoreFactory 'gunScore'
+turretScore = scoreFactory 'turretScore'
+turretsLost = scoreFactory 'turretsLost'
+
 
 
 # augment three.js
@@ -603,12 +611,13 @@ spawnZombie = ->
   zombies.push zombieMesh
   zombieMesh
 
-zombieHit = (shooter, zombie, bullet, damage) ->
+zombieHit = (shooter, zombie, bullet, damage, score) ->
   zombie.health.hit damage
   zombie.victim.considerTarget shooter
   if !zombie.health.value
     zombies = _.without zombies, zombie
     scene.remove zombie
+    score.increase()
   if bullet
     bullets = bullets.filter (item) -> item isnt bullet
     scene.remove bullet
@@ -822,7 +831,7 @@ updateZombies = (delta) ->
           bullet: bullet
 
   for pair in queue
-    zombieHit controls.getObject(), pair.zombie, pair.bullet, 0.25
+    zombieHit controls.getObject(), pair.zombie, pair.bullet, 0.25, gunScore
 
 times.crateSpawned = Date.now()
 arenaSize = 400
@@ -869,6 +878,7 @@ updateTurrets = (delta) ->
         turret.icon.scale.set scale, scale, scale
         if now - turret.knocked > timeout + fadeTime
           queue.push turret
+          turretsLost.increase()
     else if turretIsKnocked turret
       turret.knocked = now
       turret.laser.disable()
@@ -905,7 +915,7 @@ updateTurrets = (delta) ->
   for turret in turrets
     turret.icon.position.copy turret.position
     shift = Math.sin(now / 300.0) * 3
-    turret.icon.position.y = 100 + shift
+    turret.icon.position.y = 80 + shift
     directionVector = deltaVector controls.getObject().position, turret.position
     turret.icon.rotation.y = Math.atan2 directionVector.x, directionVector.z
     if turret.icon.scale.x < 1
@@ -923,7 +933,7 @@ updateTurrets = (delta) ->
         if turret.laser.canFire() and (intersections[0].object in zombies)
           zombie = intersections[0].object
           firingTurret = turret
-          turret.laser.fire -> zombieHit firingTurret, zombie, null, 0.2
+          turret.laser.fire -> zombieHit firingTurret, zombie, null, 0.2, turretScore
       turret.laser.animate()
 
 updateMoon = ->

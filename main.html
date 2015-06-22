@@ -55,6 +55,39 @@
 
 			}
 
+			#Stats-output {
+				position: absolute;
+				top: 0;
+				right: 0;
+			}
+
+			.counters {
+					 position: absolute;
+					 padding: 2vh;
+					 height: 10vh;
+					 font-size: 8vh;
+					 color: white;
+				 }
+
+			.counters p {
+				margin: 0;
+			}
+
+			.counters img, .counters span {
+				height: 10vh;
+				line-height: 10vh;
+			}
+
+			#score {
+				top: 0;
+				left: 0;
+			}
+
+			#info {
+				bottom: 0;
+				left: 0;
+			}
+
 		</style>
 	</head>
 	<body>
@@ -69,6 +102,24 @@
 				(W, A, S, D = Move, SPACE = Jump, MOUSE = Look around)
 			</div>
 
+		</div>
+
+		<div id="score" class="counters">
+			<p>
+				<img src="res/counters/gun_score.png">
+				<span id="gunScore">0</span>
+			</p>
+			<p>
+				<img src="res/counters/turret_score.png">
+				<span id="turretScore">0</span>
+			</p>
+		</div>
+
+		<div id="info" class="counters">
+			<p>
+				<img src="res/counters/turrets_lost.png">
+				<span id="turretsLost">0</span>
+			</p>
 		</div>
 
 		<script src="lib/three.js"></script>
