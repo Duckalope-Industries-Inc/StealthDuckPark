@@ -9,16 +9,27 @@ stats.setMode(0)  # 0: fps, 1: ms
 
 document.getElementById('Stats-output').appendChild stats.domElement
 
-scoreFactory = (id) ->
-  value: 0
+counterFactory = (id, initial = 0, cap = no, condition, callback) ->
+  value: initial
   element: document.getElementById id
-  increase: ->
-    @value += 1
+  change: (v = 1) ->
+    @value += v
+    if cap and @value > cap
+      @value = cap
     @element.textContent = @value
-    
-gunScore = scoreFactory 'gunScore'
-turretScore = scoreFactory 'turretScore'
-turretsLost = scoreFactory 'turretsLost'
+    if condition and condition(@value)
+      callback()
+
+gunScore = counterFactory 'gunScore'
+turretScore = counterFactory 'turretScore'
+turretsLost = counterFactory 'turretsLost'
+health = counterFactory 'health', 100, 100, ((v) -> v <= 0), ->
+  controls.enabled = no
+  blocker.style.display = '-webkit-box'
+  blocker.style.display = '-moz-box'
+  blocker.style.display = 'box'
+  instructions.style.display = 'block'
+  instructions.innerHTML = '<span>Game Over</span><br>Esc = exit fullscreen'
 
 
 
@@ -44,15 +55,17 @@ distance = (a, b) ->
   deltaVector(a, b).length()
 
 # textures
-zombieTexture = THREE.ImageUtils.loadTexture 'res/zombie.png', new THREE.UVMapping()
 grassTexture = THREE.ImageUtils.loadTexture 'res/grasslight-big.jpg'
-crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif', new THREE.UVMapping()
+crateTexture = THREE.ImageUtils.loadTexture 'res/crate.gif'
 flareTexture = THREE.ImageUtils.loadTexture 'res/lensflare0.png'
 moonTexture = THREE.ImageUtils.loadTexture 'res/moon.png'
 fenceTexture = THREE.ImageUtils.loadTexture 'res/fence.png'
 muzzleFlashTexture = THREE.ImageUtils.loadTexture 'res/muzzle_flash.png'
 turretIconTexture = THREE.ImageUtils.loadTexture 'res/turret_icon.png'
 laserTexture = THREE.ImageUtils.loadTexture 'res/laser.png'
+hitCircleTexture = THREE.ImageUtils.loadTexture 'res/hit_circle.png'
+medkitTexture = THREE.ImageUtils.loadTexture 'res/medkit.png'
+medkitIconTexture = THREE.ImageUtils.loadTexture 'res/medkit_icon.png'
 
 loadMultitexture = (prefix, names...) ->
   for name in names
@@ -73,14 +86,8 @@ transparentFrictionMaterial = Physijs.createMaterial new THREE.MeshLambertMateri
   color: 0xffffff
   transparent: yes
   opacity: 0
-), 0, 0
+), 1, 0
 
-zombieMaterialFactory = -> Physijs.createMaterial new THREE.MeshPhongMaterial(
-  map: zombieTexture
-  transparent: yes
-  shading: THREE.FlatShading
-  side: THREE.DoubleSide
-), 0, 0
 grassMaterial = Physijs.createMaterial new THREE.MeshLambertMaterial(
   map: grassTexture
   specular: 0xffffff
@@ -117,13 +124,25 @@ turretMaterial = new THREE.MeshLambertMaterial
   specular: 0xffffff
 turretIconMaterial = new THREE.MeshBasicMaterial
   map: turretIconTexture
-  side: THREE.DoubleSide
   transparent: yes
 laserMaterial = new THREE.MeshBasicMaterial
   map: laserTexture
   side: THREE.DoubleSide
   transparent: yes
 laserMaterial.blending = THREE.AdditiveBlending
+hitCircleMaterialFactory = ->
+  material = new THREE.MeshBasicMaterial
+    map: hitCircleTexture
+    side: THREE.DoubleSide
+    transparent: yes
+  material.depthWrite = no
+  material
+medkitMaterial = new THREE.MeshLambertMaterial
+  map: medkitTexture
+  emissive: 0xffffff
+medkitIconMaterial = new THREE.MeshBasicMaterial
+  map: medkitIconTexture
+  transparent: yes
 
 createMultimaterial = (textures, proto, options) ->
   options = {} if not options
@@ -174,6 +193,8 @@ bullets = []
 zombies = []
 fences = []
 turrets = []
+hitCircles = []
+medkits = []
 
 
 
@@ -240,7 +261,7 @@ else
 
 
 # initialize graphics and controls
-camera = new THREE.PerspectiveCamera 75, window.innerWidth / window.innerHeight, 1, 1000
+camera = new THREE.PerspectiveCamera 75, window.innerWidth / window.innerHeight, 0.1, 1000
 
 scene = new Physijs.Scene()
 scene.fog = new THREE.Fog 0x000000, 0, 750
@@ -308,6 +329,8 @@ scene.add grassMesh
 crateMaterial.color.setHSL 0.75, 0.75, 0.87
 crateGeometry = new THREE.BoxGeometry 20, 20, 20
 # crates are created during rendering
+
+medkitGeometry = new THREE.BoxGeometry 5, 5, 5
 
 lampModelDeferred.promise().then (mesh) ->
   lampGeometry = new THREE.CylinderGeometry 1, 1, 30, 8
@@ -467,6 +490,31 @@ handleDirectedCollision = (caster, callback) ->
 
 
 
+# HUD
+addHitCircle = (direction) ->
+  hitCircleGeometry = new THREE.PlaneGeometry 0.17, 0.17
+  hitCircleMesh = new THREE.Mesh hitCircleGeometry, hitCircleMaterialFactory()
+  hitCircleMesh.position.z = -0.11
+  hitCircleMesh.hitDirection = direction
+
+  hitCircleMesh.timestamp = Date.now()
+  hitCircleMesh.update = ->
+    now = Date.now()
+    delta = ((now - @timestamp - 200) or 0.01) / 1200 * Math.PI / 2
+    if delta >= 0
+      if delta > Math.PI / 2
+        controls.getObject().children[0].remove @
+        return yes
+      @material.opacity = Math.cos delta
+    @rotation.z = @hitDirection - controls.getObject().rotation.y
+    no
+
+  hitCircles.push hitCircleMesh
+  controls.getObject().children[0].add hitCircleMesh
+  health.change -20
+
+
+
 # zombies
 zombieMeshFactory = (scene_) ->
   zombieGeometry = new THREE.BoxGeometry 14, 32, 16
@@ -500,29 +548,32 @@ zombieMeshFactory = (scene_) ->
   zombieLimbFactory(zombieRArmMaterial, 'rightarm', 2).position.set 0, 4, 6
 
   zombie.legs =
-    modulo: -1
+    timestamp: no
     animate: ->
-      @modulo = (@modulo + 1) % 4
-      return if @modulo
-      delta = Date.now() / 1600 * Math.PI * 2
+      if not @timestamp
+        zombie.leftleg.rotation.z = 0
+        zombie.rightleg.rotation.z = 0
+        return
+      delta = (Date.now() - @timestamp) / 1600 * Math.PI * 2
       roll = 0.3 * Math.sin delta
       zombie.leftleg.rotation.z = roll
       zombie.rightleg.rotation.z = -roll
+    startAnimation: ->
+      return if @timestamp
+      @timestamp = Date.now()
+      @modulo = -1
+    stopAnimation: ->
+      @timestamp = no
 
-  zombie.lookAt = (->
-    modulo = -1
-    (point) ->
-      modulo = (modulo + 1) % 4
-      return if modulo
-      vector = deltaVector @position, point
-      @rotation.set 0, Math.atan2(-vector.z, vector.x), 0
-      @__dirtyRotation = yes
-      hDistance = Math.sqrt Math.pow(vector.x, 2) + Math.pow(vector.z, 2)
-      basicRotation = Math.tanh vector.y / hDistance
-      @head.rotation.z = basicRotation
-      @leftarm.rotation.z = basicRotation + Math.PI / 2
-      @rightarm.rotation.z = basicRotation + Math.PI / 2
-    )()
+  zombie.lookAt = (point) ->
+    vector = deltaVector @position, point
+    @rotation.set 0, Math.atan2(-vector.z, vector.x), 0
+    @__dirtyRotation = yes
+    hDistance = Math.sqrt Math.pow(vector.x, 2) + Math.pow(vector.z, 2)
+    basicRotation = Math.tanh vector.y / hDistance
+    @head.rotation.z = basicRotation
+    @leftarm.rotation.z = basicRotation + Math.PI / 2
+    @rightarm.rotation.z = basicRotation + Math.PI / 2
 
   zombie
 
@@ -540,7 +591,6 @@ spawnZombie = ->
     break if vec.length() > 100
 
   zombieMesh.position.set x, 8.1, z
-  zombieMesh.lookAt controls.getObject().position
 
   now = Date.now()
 
@@ -578,15 +628,25 @@ spawnZombie = ->
           
   zombieMesh.victim =
     target: null
-    attack: ->
+    lastBite: Date.now()
+    walkTo: ->
       if (not @target) or not (@target in turrets)
         @target = controls.getObject()
-      zombieMesh.lookAt @target.position
       zombieMesh.position.y = 8.1
       zombieMesh.__dirtyPosition = yes
+      lookTarget = new THREE.Vector3
+      lookTarget.copy @target.position
+      lookTarget.y = 6 if @target is controls.getObject()
+      zombieMesh.lookAt lookTarget
       dir = deltaVector zombieMesh.position, @target.position
-      if dir.length() < 10
-        dir.multiplyScalar 10 / dir.length()
+      zombieMesh.legs.startAnimation()
+      threshold = 20
+      if dir.length() < 8
+        dir.set 0, 0, 0
+        zombieMesh.legs.stopAnimation()
+        zombieMesh.victim.bite()
+      else if dir.length() < threshold
+        dir.multiplyScalar threshold / dir.length()
       dir.divideScalar 10
       zombieMesh.setLinearVelocity(new THREE.Vector3 dir.x, 0, dir.z)
       vector = deltaVector zombieMesh.position, @target.position
@@ -607,6 +667,11 @@ spawnZombie = ->
           if distance(zombie.position, zombieMesh.position) < 45
             zombie.victim.considerTarget @target, inviteOthers - 1
             break
+    bite: ->
+      return if Date.now() - @lastBite < 1500
+      vector = deltaVector controls.getObject().position, zombieMesh.position
+      addHitCircle Math.atan2 -vector.x, -vector.z
+      @lastBite = Date.now()
 
   zombies.push zombieMesh
   zombieMesh
@@ -617,14 +682,54 @@ zombieHit = (shooter, zombie, bullet, damage, score) ->
   if !zombie.health.value
     zombies = _.without zombies, zombie
     scene.remove zombie
-    score.increase()
+    score.change +1
   if bullet
     bullets = bullets.filter (item) -> item isnt bullet
     scene.remove bullet
+    
+    
+    
+# icons
+addIcon = (height, material, parent) ->
+  iconGeometry = new THREE.PlaneGeometry 10, height, 1, 1
+  iconMesh = new THREE.Mesh iconGeometry, material
+  parent.icon = iconMesh
+  iconMesh.showTimestamp = no
+  iconMesh.removalTimestamp = no
+
+  iconMesh.animate = ->
+    return if not @showTimestamp
+    now = Date.now()
+    @position.copy parent.position
+    shift = Math.sin(now / 300.0) * 3
+    @position.y = 80 + shift
+    directionVector = deltaVector controls.getObject().position, parent.position
+    @rotation.y = Math.atan2 -directionVector.x, -directionVector.z
+    if @removalTimestamp
+      delta = (now - @removalTimestamp) / 300.0 * Math.PI / 2
+      scale = Math.cos delta
+      if scale <= 0
+        @removed = yes
+        scene.remove @
+        return
+      @scale.set scale, scale, scale
+    else
+      delta = (now - @showTimestamp) / 300.0 * Math.PI / 2
+      scale = if delta > Math.PI / 2 then 1 else Math.sin delta
+      @scale.set scale, scale, scale
+  iconMesh.show = ->
+    return if @showTimestamp
+    @showTimestamp = Date.now()
+    scene.add @
+    @animate()
+  iconMesh.remove = ->
+    return if @removalTimestamp
+    @removalTimestamp = Date.now()
+
+  iconMesh
 
 
-
-# crates
+# crates and bonuses
 addCrate = (pos) ->
   crateMesh = new Physijs.BoxMesh crateGeometry, crateMaterial, 200
   crateMesh.position.copy pos
@@ -633,6 +738,18 @@ addCrate = (pos) ->
   scene.add crateMesh
   crates.push crateMesh
   crateMesh
+  
+addMedkit = (pos, rotation) ->
+  medkitMesh = new Physijs.BoxMesh medkitGeometry, medkitMaterial, 20
+  medkitMesh.position.copy pos
+  medkitMesh.rotation.y = rotation
+  medkitMesh.castShadow = yes
+
+  addIcon 15, medkitIconMaterial, medkitMesh
+
+  scene.add medkitMesh
+  medkits.push medkitMesh
+  medkitMesh
 
 
 
@@ -690,9 +807,7 @@ spawnTurret = (position, rotation) ->
 
   turretMesh.knocked = no
 
-  turretIconGeometry = new THREE.PlaneGeometry 10, 20, 1, 1
-  turretIconMesh = new THREE.Mesh turretIconGeometry, turretIconMaterial
-  turretMesh.icon = turretIconMesh
+  addIcon 20, turretIconMaterial, turretMesh
 
   turretLaserGeometry1 = new THREE.PlaneGeometry 1, 0.3, 1, 1
   turretLaserGeometry2 = new THREE.PlaneGeometry 1, 0.3, 1, 1
@@ -804,7 +919,7 @@ getRandomInt = (min, max) ->
 
 times.zombieSpawned = Date.now() + 3000  # delay initial spawn
 updateZombies = (delta) ->
-  if zombies.length < 9
+  if zombies.length < 12
     now = Date.now()
     if now - times.zombieSpawned > 1000  # do not spawn too frequently
       spawnZombie()
@@ -814,7 +929,7 @@ updateZombies = (delta) ->
   now = Date.now()
   for zombie in zombies
     zombie.legs.animate()
-    zombie.victim.attack()
+    zombie.victim.walkTo()
 
     posDelta = distance zombie.position, zombie.anger.lastPosition
     if posDelta / delta > 0.4
@@ -860,7 +975,7 @@ updateTurrets = (delta) ->
     if now - times.turretSpawned > 3000  # do not spawn too frequently
       x = randomInt arenaSize
       z = randomInt arenaSize
-      spawnTurret new THREE.Vector3(x - arenaSize / 2, 100, z - arenaSize / 2), randomFloat(0, Math.PI * 2)
+      spawnTurret new THREE.Vector3(x - arenaSize / 2, 100, z - arenaSize / 2), randomFloat(0, Math.PI)
       times.turretSpawned = now
 
   queue = []
@@ -875,10 +990,10 @@ updateTurrets = (delta) ->
       else if now - turret.knocked > timeout
         scale = Math.max(0.01, Math.cos (now - turret.knocked - timeout) / fadeTime * Math.PI / 2)
         turret.scale.set scale, scale, scale
-        turret.icon.scale.set scale, scale, scale
+        turret.icon.remove()
         if now - turret.knocked > timeout + fadeTime
           queue.push turret
-          turretsLost.increase()
+          turretsLost.change +1
     else if turretIsKnocked turret
       turret.knocked = now
       turret.laser.disable()
@@ -903,8 +1018,7 @@ updateTurrets = (delta) ->
       else
         turret.remove turret.parachute
         turret.parachute = null
-        scene.add turret.icon
-        turret.icon.scale.set 0.01, 0.01, 0.01
+        turret.icon.show()
         turret.laser.enable()
 
   for item in queue
@@ -913,15 +1027,7 @@ updateTurrets = (delta) ->
     turrets = _.without turrets, item
 
   for turret in turrets
-    turret.icon.position.copy turret.position
-    shift = Math.sin(now / 300.0) * 3
-    turret.icon.position.y = 80 + shift
-    directionVector = deltaVector controls.getObject().position, turret.position
-    turret.icon.rotation.y = Math.atan2 directionVector.x, directionVector.z
-    if turret.icon.scale.x < 1
-      scale = Math.min 1, turret.icon.scale.x + delta / 300.0
-      turret.icon.scale.set scale, scale, scale
-
+    turret.icon.animate()
     if not turret.parachute
       direction = new THREE.Vector3 1, 0, 0
       for axis in ['z', 'y', 'x']
@@ -941,6 +1047,47 @@ updateMoon = ->
   moonMesh.position.add moonMeshDelta
   moonMesh.lookAt controls.getObject().position
 
+lastMedkitSpawn = Date.now()
+updateHealth = ->
+  now = Date.now()
+
+  queue = []
+  for circle in hitCircles
+    if circle.update()
+      queue.push circle
+  hitCircles = _.without hitCircles, queue...
+  
+  queue = []
+  for medkit in medkits
+    medkit.icon.animate()
+    if medkit.position.y < 40
+      console.log 'show!'
+      medkit.icon.show()
+    if medkit.consumed
+      delta = (now - medkit.consumed) / 300 * Math.PI / 2
+      if delta >= Math.PI / 2
+        queue.push medkit
+        continue
+      scale = Math.cos delta
+      medkit.scale.set scale, scale, scale
+    else
+      vector = deltaVector controls.getObject().position, medkit.position
+      vector.y = 0
+      if vector.length() < 5
+        medkit.consumed = now
+        medkit.icon.remove()
+        health.change +20
+
+  for item in queue
+    scene.remove item
+  medkits = _.without medkits, queue...
+
+  if now - lastMedkitSpawn > 20000
+    if medkits.length < 2
+      x = randomInt arenaSize
+      z = randomInt arenaSize
+      addMedkit new THREE.Vector3(x - arenaSize / 2, 100, z - arenaSize / 2), randomFloat(0, Math.PI)
+    lastMedkitSpawn = now
 
 
 
@@ -960,6 +1107,7 @@ animate = ->
   updateMoon()
   gunParentMesh.update delta
   checkCollisions()
+  updateHealth()
 
   scene.simulate delta, 1
   stats.update()

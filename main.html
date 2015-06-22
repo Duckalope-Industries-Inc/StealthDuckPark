@@ -55,6 +55,10 @@
 
 			}
 
+			#instructions span {
+				font-size: 40px;
+			}
+
 			#Stats-output {
 				position: absolute;
 				top: 0;
@@ -88,6 +92,12 @@
 				left: 0;
 			}
 
+			#params {
+				bottom: 0;
+				right: 0;
+				text-align: right;
+			}
+
 		</style>
 	</head>
 	<body>
@@ -97,7 +107,7 @@
 		<div id="blocker">
 
 			<div id="instructions">
-				<span style="font-size:40px">Click to play</span>
+				<span>Click to play</span>
 				<br />
 				(W, A, S, D = Move, SPACE = Jump, MOUSE = Look around)
 			</div>
@@ -119,6 +129,13 @@
 			<p>
 				<img src="res/counters/turrets_lost.png">
 				<span id="turretsLost">0</span>
+			</p>
+		</div>
+
+		<div id="params" class="counters">
+			<p>
+				<span id="health">100</span>
+				<img src="res/counters/health.png">
 			</p>
 		</div>
 
