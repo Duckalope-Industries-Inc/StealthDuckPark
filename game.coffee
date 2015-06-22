@@ -1068,7 +1068,6 @@ updateHealth = ->
   for medkit in medkits
     medkit.icon.animate()
     if medkit.position.y < 40
-      console.log 'show!'
       medkit.icon.show()
     if medkit.consumed
       delta = (now - medkit.consumed) / 300 * Math.PI / 2
