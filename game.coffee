@@ -139,7 +139,7 @@ hitCircleMaterialFactory = ->
   material
 medkitMaterial = new THREE.MeshLambertMaterial
   map: medkitTexture
-  emissive: 0xffffff
+  specular: 0xffffff
 medkitIconMaterial = new THREE.MeshBasicMaterial
   map: medkitIconTexture
   transparent: yes
