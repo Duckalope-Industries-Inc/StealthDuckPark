@@ -151,12 +151,12 @@ createMultimaterial = (textures, proto, options) ->
     texOpts.map = texture
     material = new proto texOpts
   new THREE.MeshFaceMaterial materials
-zombieHeadMaterial = createMultimaterial zombieHeadTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
-zombieBodyMaterial = createMultimaterial zombieBodyTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
-zombieLLegMaterial = createMultimaterial zombieLLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
-zombieRLegMaterial = createMultimaterial zombieRLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
-zombieLArmMaterial = createMultimaterial zombieLArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
-zombieRArmMaterial = createMultimaterial zombieRArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieHeadMaterialFactory = -> createMultimaterial zombieHeadTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieBodyMaterialFactory = -> createMultimaterial zombieBodyTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieLLegMaterialFactory = -> createMultimaterial zombieLLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieRLegMaterialFactory = -> createMultimaterial zombieRLegTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieLArmMaterialFactory = -> createMultimaterial zombieLArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
+zombieRArmMaterialFactory = -> createMultimaterial zombieRArmTextures, THREE.MeshLambertMaterial, {specular: 0xffffff}
 
 # models
 lampModelDeferred = Deferred()
@@ -524,13 +524,13 @@ zombieMeshFactory = (scene_) ->
   scene_.add zombie
 
   zombieBodyGeometry = new THREE.BoxGeometry 4, 12, 8
-  zombieBodyMesh = new THREE.Mesh zombieBodyGeometry, zombieBodyMaterial
+  zombieBodyMesh = new THREE.Mesh zombieBodyGeometry, zombieBodyMaterialFactory()
   zombieBodyMesh.position.set -3, 2, 0
   zombie.body = zombieBodyMesh
   zombie.add zombieBodyMesh
 
   zombieHeadGeometry = new THREE.BoxGeometry 8, 8, 8
-  zombieHeadMesh = new THREE.Mesh zombieHeadGeometry, zombieHeadMaterial
+  zombieHeadMesh = new THREE.Mesh zombieHeadGeometry, zombieHeadMaterialFactory()
   zombieHeadMesh.position.y = 10
   zombie.head = zombieHeadMesh
   zombie.body.add zombieHeadMesh
@@ -542,10 +542,10 @@ zombieMeshFactory = (scene_) ->
     zombie[part] = zombieLimbMesh
     zombie.body.add zombieLimbMesh
     zombieLimbMesh
-  zombieLimbFactory(zombieLLegMaterial, 'leftleg').position.set 0, -6, -2
-  zombieLimbFactory(zombieRLegMaterial, 'rightleg').position.set 0, -6, 2
-  zombieLimbFactory(zombieLArmMaterial, 'leftarm', 2).position.set 0, 4, -6
-  zombieLimbFactory(zombieRArmMaterial, 'rightarm', 2).position.set 0, 4, 6
+  zombieLimbFactory(zombieLLegMaterialFactory(), 'leftleg').position.set 0, -6, -2
+  zombieLimbFactory(zombieRLegMaterialFactory(), 'rightleg').position.set 0, -6, 2
+  zombieLimbFactory(zombieLArmMaterialFactory(), 'leftarm', 2).position.set 0, 4, -6
+  zombieLimbFactory(zombieRArmMaterialFactory(), 'rightarm', 2).position.set 0, 4, 6
 
   zombie.legs =
     timestamp: no
@@ -599,7 +599,12 @@ spawnZombie = ->
     nextRegen: Date.now() + 2000
     set: (value, regenOffset = 0) ->
       @value = Math.max value, 0
-      zombieMesh.material.color.setRGB 1, @value, @value
+      for mesh in [zombieMesh.head, zombieMesh.body, zombieMesh.leftarm, zombieMesh.rightarm, zombieMesh.leftleg, zombieMesh.rightleg]
+        if mesh.material.materials
+          for material in mesh.material.materials
+            material.color.setRGB 1, @value, @value
+        else
+          mesh.material.color.setRGB 1, @value, @value
     hit: (v) ->
       @set @value - v
       @nextRegen = Date.now() + 2000
