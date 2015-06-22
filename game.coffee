@@ -636,7 +636,9 @@ spawnZombie = ->
       zombieMesh.__dirtyPosition = yes
       lookTarget = new THREE.Vector3
       lookTarget.copy @target.position
-      lookTarget.y = 6 if @target is controls.getObject()
+      if @target is controls.getObject()
+        if @target.position.y <= 14
+          lookTarget.y -= Math.min 14 - @target.position.y, 4
       zombieMesh.lookAt lookTarget
       dir = deltaVector zombieMesh.position, @target.position
       zombieMesh.legs.startAnimation()
